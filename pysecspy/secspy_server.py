@@ -1,8 +1,7 @@
 """Module to communicate with the SecuritySpy API."""
 import logging
 import asyncio
-import sys
-import datetime
+import json
 import time
 import xmltodict
 
@@ -201,26 +200,18 @@ class SecSpyServer:
 
     async def _setup_websocket(self):
         """Setup the Event Websocket."""
-        ip_address = self._base_url.split("://")
         url = f"{self._base_url}/eventStream?version=3&format=multipart&auth={self._token}"
-        # if self.last_update_id:
-        #     url += f"?lastUpdateId={self.last_update_id}"
         if not self.ws_session:
             self.ws_session = aiohttp.ClientSession()
         _LOGGER.debug("WS connecting to: %s", url)
 
-        self.ws_connection = await self.ws_session.ws_connect(url, headers=self.headers
-        )
         try:
-            async for msg in self.ws_connection:
-                if msg.type == aiohttp.WSMsgType.BINARY:
-                    try:
-                        self._process_ws_message(msg)
-                    except Exception:  # pylint: disable=broad-except
-                        _LOGGER.exception("Error processing websocket message")
-                        return
-                elif msg.type == aiohttp.WSMsgType.ERROR:
-                    break
+            async with self.ws_session.request("get", url) as self.ws_connection:
+                async for msg in self.ws_connection.content:
+                    data = msg.decode('UTF-8')
+                    if data[:14].isnumeric():
+                        self._process_ws_message(data)
+                        await asyncio.sleep(0.1)
         finally:
             _LOGGER.debug("websocket disconnected")
             self.ws_connection = None
@@ -237,3 +228,69 @@ class SecSpyServer:
         _LOGGER.debug("Adding subscription: %s", ws_callback)
         self._ws_subscriptions.append(ws_callback)
         return _unsub_ws_callback
+
+    def _process_ws_message(self, msg):
+        """Process websocket messages."""
+
+        action_array = msg.split(" ")
+        event_key = action_array[3]
+
+        if event_key not in (
+            "MOTION",
+            "FILE",
+            "CLASSIFY",
+            "TRIGGER_M"
+        ):
+            return
+
+
+        # if model_key not in ("event", "camera", "light"):
+        #     return
+
+        # _LOGGER.debug("Action Frame: %s", action_json)
+
+        # data_frame, data_frame_payload_format, _ = decode_ws_frame(msg.data, position)
+
+        # if data_frame_payload_format != ProtectWSPayloadFormat.JSON:
+        #     return
+
+        # data_json = pjson.loads(data_frame)
+        # _LOGGER.debug("Data Frame: %s", data_json)
+
+        # if model_key == "event":
+        #     self._process_event_ws_message(action_json, data_json)
+        #     return
+
+        # if model_key == "camera":
+        #     self._process_camera_ws_message(action_json, data_json)
+        #     return
+
+        # raise ValueError(f"Unexpected model key: {model_key}")
+
+    def _process_event_ws_message(self, action_json, data_json):
+        """Process a decoded event websocket message."""
+        device_id, processed_event = event_from_ws_frames(
+            self._event_state_machine, self._minimum_score, action_json, data_json
+        )
+
+        if device_id is None:
+            return
+
+        _LOGGER.debug("Procesed event: %s", processed_event)
+
+        self.fire_event(device_id, processed_event)
+
+        if processed_event["event_ring_on"]:
+            # The websocket will not send any more events since
+            # doorbell rings do not have a length. We fire an
+            # additional event to turn off the ring.
+            processed_event["event_ring_on"] = False
+            self.fire_event(device_id, processed_event)
+
+
+    def fire_event(self, device_id, processed_event):
+        """Callback and event to the subscribers and update data."""
+        self._update_device(device_id, processed_event)
+
+        for subscriber in self._ws_subscriptions:
+            subscriber({device_id: self._processed_data[device_id]})

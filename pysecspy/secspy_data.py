@@ -1,4 +1,9 @@
 """SecuritySpy Data."""
+import logging
+import struct
+
+WS_HEADER_SIZE = 8
+_LOGGER = logging.getLogger(__name__)
 
 PROCESSED_EVENT_EMPTY = {
     "event_start": None,
@@ -8,6 +13,7 @@ PROCESSED_EVENT_EMPTY = {
     "event_length": 0,
     "event_object": [],
 }
+
 
 def process_camera(server_id, host, camera, include_events):
     """Process the camera xml."""
