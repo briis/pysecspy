@@ -16,9 +16,11 @@ from pysecspy.const import (
 )
 
 from pysecspy.secspy_data import (
+    event_from_ws_frames,
     process_camera,
     PROCESSED_EVENT_EMPTY,
     SecspyDeviceStateMachine,
+    SecspyEventStateMachine,
 )
 
 from pysecspy.errors import (
@@ -44,6 +46,7 @@ class SecSpyServer:
         self._last_device_update_time = 0
         self._last_websocket_check = 0
         self._device_state_machine = SecspyDeviceStateMachine()
+        self._event_state_machine = SecspyEventStateMachine()
 
         self._processed_data = {}
 
@@ -210,7 +213,7 @@ class SecSpyServer:
                 async for msg in self.ws_connection.content:
                     data = msg.decode('UTF-8')
                     if data[:14].isnumeric():
-                        self._process_ws_message(data)
+                        self._process_ws_message("event", data)
                         await asyncio.sleep(0.1)
         finally:
             _LOGGER.debug("websocket disconnected")
@@ -229,13 +232,13 @@ class SecSpyServer:
         self._ws_subscriptions.append(ws_callback)
         return _unsub_ws_callback
 
-    def _process_ws_message(self, msg):
+    def _process_ws_message(self, model_key, msg):
         """Process websocket messages."""
 
         action_array = msg.split(" ")
-        event_key = action_array[3]
+        action_key = action_array[3]
 
-        if event_key not in (
+        if action_key not in (
             "MOTION",
             "FILE",
             "CLASSIFY",
@@ -243,34 +246,88 @@ class SecSpyServer:
         ):
             return
 
+        if model_key not in ("event", "camera"):
+            return
 
-        # if model_key not in ("event", "camera", "light"):
-        #     return
+        _LOGGER.debug("Action Frame: %s", action_key)
 
-        # _LOGGER.debug("Action Frame: %s", action_json)
+        action_json = {}
+        data_json = {}
+        if action_key == "MOTION":
+            data_json = {
+                "timestamp": action_array[0],
+                "camera_id": action_array[2],
+                "X": action_array[4],
+                "Y": action_array[5],
+                "W": action_array[6],
+                "H": action_array[7],
+            }
+            action_json = {
+                "modelKey": "event",
+                "action": "update",
+                "id": action_array[2],
+            }
+        
+        if action_key == "FILE":
+            data_json = {
+                "timestamp": action_array[0],
+                "camera_id": action_array[2],
+                "file_name": action_array[4],
+            }
+            action_json = {
+                "modelKey": "event",
+                "action": "update",
+                "id": action_array[2],
+            }
+        
+        if action_key == "CLASSIFY":
+            if len(action_array) > 6:
+                data_json = {
+                    "timestamp": action_array[0],
+                    "camera_id": action_array[2],
+                    action_array[4]: action_array[5],
+                    action_array[6]: action_array[7],
+                }
+            else:
+                data_json = {
+                    "timestamp": action_array[0],
+                    "camera_id": action_array[2],
+                    action_array[4]: action_array[5],
+                }
+            action_json = {
+                "modelKey": "event",
+                "action": "update",
+                "id": action_array[2],
+            }
 
-        # data_frame, data_frame_payload_format, _ = decode_ws_frame(msg.data, position)
+        if action_key == "TRIGGER_M":
+            data_json = {
+                "timestamp": action_array[0],
+                "camera_id": action_array[2],
+                "reason": action_array[4],
+            }
+            action_json = {
+                "modelKey": "event",
+                "action": "add",
+                "id": action_array[2],
+            }
 
-        # if data_frame_payload_format != ProtectWSPayloadFormat.JSON:
-        #     return
+        _LOGGER.debug("Data Frame: %s", data_json)
 
-        # data_json = pjson.loads(data_frame)
-        # _LOGGER.debug("Data Frame: %s", data_json)
-
-        # if model_key == "event":
-        #     self._process_event_ws_message(action_json, data_json)
-        #     return
+        if model_key == "event":
+            self._process_event_ws_message(action_json, data_json)
+            return
 
         # if model_key == "camera":
         #     self._process_camera_ws_message(action_json, data_json)
         #     return
 
-        # raise ValueError(f"Unexpected model key: {model_key}")
+        raise ValueError(f"Unexpected model key: {model_key}")
 
     def _process_event_ws_message(self, action_json, data_json):
         """Process a decoded event websocket message."""
         device_id, processed_event = event_from_ws_frames(
-            self._event_state_machine, self._minimum_score, action_json, data_json
+            self._event_state_machine, action_json, data_json
         )
 
         if device_id is None:

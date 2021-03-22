@@ -1,9 +1,12 @@
 """SecuritySpy Data."""
 import logging
 import struct
+from collections import OrderedDict
 
-WS_HEADER_SIZE = 8
 _LOGGER = logging.getLogger(__name__)
+
+MAX_SUPPORTED_CAMERAS = 256
+MAX_EVENT_HISTORY_IN_STATE_MACHINE = MAX_SUPPORTED_CAMERAS * 2
 
 PROCESSED_EVENT_EMPTY = {
     "event_start": None,
@@ -139,6 +142,115 @@ def process_camera(server_id, host, camera, include_events):
 
     return camera_update
 
+def event_from_ws_frames(state_machine, action_json, data_json):
+    """Convert a websocket frame to internal format.
+
+    Smart Detect Event Add:
+    {'action': 'add', 'newUpdateId': '032615bb-910d-41bf-8710-b04959f24455', 'modelKey': 'event', 'id': '5fb0c89003085203870013d0'}
+    {'type': 'smartDetectZone', 'start': 1605421197481, 'score': 98, 'smartDetectTypes': ['person'], 'smartDetectEvents': [], 'camera': '5f9f43f102f7d90387004da5', 'partition': None, 'id': '5fb0c89003085203870013d0', 'modelKey': 'event'}
+
+    Smart Detect Event Update:
+    {'action': 'update', 'newUpdateId': '84c74562-bb14-4426-8b92-84ae80d1fb4a', 'modelKey': 'event', 'id': '5fb0c92303b75203870013db'}
+    {'end': 1605421366608, 'score': 52}
+
+    Camera Motion Start (event):
+    {'action': 'add', 'newUpdateId': '25b1142a-2d0d-4b85-b97e-401b03dd1f0b', 'modelKey': 'event', 'id': '5fb0c90603455203870013d7'}
+    {'type': 'motion', 'start': 1605421315759, 'score': 0, 'smartDetectTypes': [], 'smartDetectEvents': [], 'camera': '5e539ed503617003870003ed', 'partition': None, 'id': '5fb0c90603455203870013d7', 'modelKey': 'event'}
+
+    Camera Motion End (event):
+    {'action': 'update', 'newUpdateId': 'aa1c159c-c575-443a-9e57-b63ed847549c', 'modelKey': 'event', 'id': '5fb0c90603455203870013d7'}
+    {'end': 1605421330342, 'score': 46}
+
+    Camera Ring (event)
+    {'action': 'add', 'newUpdateId': 'da36377d-b947-4b05-ba11-c17b0d2703f9', 'modelKey': 'event', 'id': '5fb1964b03b352038700184d'}
+    {'type': 'ring', 'start': 1605473867945, 'end': 1605473868945, 'score': 0, 'smartDetectTypes': [], 'smartDetectEvents': [], 'camera': '5f9f43f102f7d90387004da5', 'partition': None, 'id': '5fb1964b03b352038700184d', 'modelKey': 'event'}
+
+    Light Motion (event)
+    {'action': 'update', 'newUpdateId': '41fddb04-e79f-4726-945f-0de74294045e', 'modelKey': 'light', 'id': '5fec968501ce7d038700539b'}
+    {'isPirMotionDetected': True, 'lastMotion': 1609579367419}
+    """
+
+    if action_json["modelKey"] != "event":
+        raise ValueError("Model key must be event")
+
+    action = action_json["action"]
+    event_id = action_json["id"]
+
+    if action == "add":
+        device_id = (
+            data_json.get("camera") or data_json.get("light") or data_json.get("sensor")
+        )
+        if device_id is None:
+            return None, None
+        state_machine.add(event_id, data_json)
+        event = data_json
+    elif action == "update":
+        event = state_machine.update(event_id, data_json)
+        if not event:
+            return None, None
+        device_id = event.get("camera") or event.get("light") or data_json.get("sensor")
+    else:
+        raise ValueError("The action must be add or update")
+
+    _LOGGER.debug("Processing event: %s", event)
+    processed_event = process_event(event, minimum_score, LIVE_RING_FROM_WEBSOCKET)
+
+    return device_id, processed_event
+
+
+def process_event(event, minimum_score, ring_interval):
+    """Convert an event to our format."""
+    start = event.get("start")
+    end = event.get("end")
+    event_type = event.get("type")
+    score = event.get("score")
+
+    event_length = 0
+    start_time = None
+
+    if start:
+        start_time = _process_timestamp(start)
+    if end:
+        event_length = round(
+            (float(end) / 1000) - (float(start) / 1000), EVENT_LENGTH_PRECISION
+        )
+
+    processed_event = {
+        "event_on": False,
+        "event_ring_on": False,
+        "event_type": event_type,
+        "event_start": start_time,
+        "event_length": event_length,
+        "event_score": score,
+        "event_object": event.get("smartDetectTypes"),
+    }
+
+    if event_type in (EVENT_MOTION, EVENT_SMART_DETECT_ZONE):
+        processed_event["last_motion"] = start_time
+        if score is not None and int(score) >= minimum_score and not end:
+            processed_event["event_on"] = True
+    elif event_type == EVENT_RING:
+        processed_event["last_ring"] = start_time
+        if ring_interval == LIVE_RING_FROM_WEBSOCKET or not end:
+            _LOGGER.debug("EVENT: DOORBELL IS RINGING")
+            processed_event["event_ring_on"] = True
+        elif start >= ring_interval and end >= ring_interval:
+            _LOGGER.debug("EVENT: DOORBELL HAS RUNG IN LAST 3 SECONDS!")
+            processed_event["event_ring_on"] = True
+        else:
+            _LOGGER.debug("EVENT: DOORBELL WAS NOT RUNG IN LAST 3 SECONDS")
+
+    thumbail = event.get("thumbnail")
+    if thumbail is not None:  # Only update if there is a new Motion Event
+        processed_event["event_thumbnail"] = thumbail
+
+    heatmap = event.get("heatmap")
+    if heatmap is not None:  # Only update if there is a new Motion Event
+        processed_event["event_heatmap"] = heatmap
+
+    return processed_event
+
+
 class SecspyDeviceStateMachine:
     """A simple state machine for events."""
 
@@ -163,3 +275,39 @@ class SecspyDeviceStateMachine:
     def get_motion_detected_time(self, device_id):
         """Get device motion start detected time."""
         return self._motion_detected_time.get(device_id)
+
+
+class SecspyEventStateMachine:
+    """A simple state machine for cameras."""
+
+    def __init__(self):
+        """Init the state machine."""
+        self._events = FixSizeOrderedDict(max_size=MAX_EVENT_HISTORY_IN_STATE_MACHINE)
+
+    def add(self, event_id, event_json):
+        """Add an event to the state machine."""
+        self._events[event_id] = event_json
+
+    def update(self, event_id, new_event_json):
+        """Update an event in the state machine and return the merged event."""
+        event_json = self._events.get(event_id)
+        if event_json is None:
+            return None
+        event_json.update(new_event_json)
+        return event_json
+
+
+class FixSizeOrderedDict(OrderedDict):
+    """A fixed size ordered dict."""
+
+    def __init__(self, *args, max_size=0, **kwargs):
+        """Create the FixSizeOrderedDict."""
+        self._max_size = max_size
+        super().__init__(*args, **kwargs)
+
+    def __setitem__(self, key, value):
+        """Set an update up to the max size."""
+        OrderedDict.__setitem__(self, key, value)
+        if self._max_size > 0:
+            if len(self) > self._max_size:
+                self.popitem(False)
