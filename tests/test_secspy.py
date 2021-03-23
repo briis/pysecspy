@@ -3,12 +3,12 @@
 import aiohttp
 import pytest
 
-from pyunifiprotect.unifi_protect_server import UpvServer
+from pysecspy.secspy_server import SecSpyServer
 
 
 @pytest.mark.asyncio
-async def test_upvserver_creation():
+async def test_server_creation():
     """Test we can create the object."""
 
-    upv = UpvServer(aiohttp.ClientSession(), "127.0.0.1", 0, "username", "password")
-    assert upv
+    sec = SecSpyServer(aiohttp.ClientSession(), "127.0.0.1", 0, "username", "password")
+    assert sec

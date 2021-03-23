@@ -1,50 +1,53 @@
 """Module to communicate with the SecuritySpy API."""
-import logging
 import asyncio
-import json
+import logging
 import time
-import xmltodict
-
-from typing import Optional
-import aiohttp
-from aiohttp import client_exceptions
 from base64 import b64encode
+
+import aiohttp
+import xmltodict
 
 from pysecspy.const import (
     CAMERA_MESSAGES,
-    EVENT_MESSAGES,
     DEVICE_UPDATE_INTERVAL_SECONDS,
+    EVENT_MESSAGES,
     WEBSOCKET_CHECK_INTERVAL_SECONDS,
 )
-
+from pysecspy.errors import RequestError
 from pysecspy.secspy_data import (
+    PROCESSED_EVENT_EMPTY,
+    SecspyDeviceStateMachine,
+    SecspyEventStateMachine,
     camera_event_from_ws_frames,
     camera_update_from_ws_frames,
     event_from_ws_frames,
     process_camera,
-    PROCESSED_EVENT_EMPTY,
-    SecspyDeviceStateMachine,
-    SecspyEventStateMachine,
-)
-
-from pysecspy.errors import (
-    InvalidCredentials,
-    RequestError,
-    ResultError,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class SecSpyServer:
     """Updates device states and attributes."""
 
-    def __init__(self, session: aiohttp.ClientSession, host: str, port: int, username: str, password: str):
+    # pylint: disable=too-many-instance-attributes
+
+    def __init__(
+        self,
+        session: aiohttp.ClientSession,
+        host: str,
+        port: int,
+        username: str,
+        password: str,
+    ):
         self._host = host
         self._port = port
         self._username = username
         self._password = password
         self._base_url = f"http://{host}:{port}"
-        self._token = b64encode(bytes(f"{self._username}:{self._password}", "utf-8")).decode()
+        self._token = b64encode(
+            bytes(f"{self._username}:{self._password}", "utf-8")
+        ).decode()
         self.headers = {"Content-Type": "text/xml"}
         self._is_authenticated = False
         self._last_device_update_time = 0
@@ -53,6 +56,7 @@ class SecSpyServer:
         self._event_state_machine = SecspyEventStateMachine()
 
         self._processed_data = {}
+        self.last_update_id = None
 
         self.req = session
         self.headers = None
@@ -85,9 +89,7 @@ class SecSpyServer:
         else:
             _LOGGER.debug("Skipping device update")
 
-        if (current_time - WEBSOCKET_CHECK_INTERVAL_SECONDS
-            > self._last_websocket_check
-        ):
+        if current_time - WEBSOCKET_CHECK_INTERVAL_SECONDS > self._last_websocket_check:
             _LOGGER.debug("Checking websocket")
             self._last_websocket_check = current_time
             await self.async_connect_ws()
@@ -98,11 +100,6 @@ class SecSpyServer:
             _LOGGER.debug("Skipping update since websocket is active")
             return self._processed_data if device_update else {}
 
-        # self._reset_device_events()
-        # updates = await self._get_events(lookback=10)
-
-        # return self._processed_data if device_update else updates
-
     async def async_connect_ws(self):
         """Connect the websocket."""
         if self.ws_connection is not None:
@@ -112,7 +109,7 @@ class SecSpyServer:
             try:
                 self.ws_task.cancel()
                 self.ws_connection = None
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 _LOGGER.exception("Could not cancel ws_task")
         self.ws_task = asyncio.ensure_future(self._setup_websocket())
 
@@ -145,7 +142,6 @@ class SecSpyServer:
         self._process_cameras_json(json_response, server_id, include_events)
 
         self._is_first_update = False
-
 
     async def get_snapshot_image(self, camera_id: str) -> bytes:
         """ Returns a Snapshot image from the specified Camera. """
@@ -183,43 +179,10 @@ class SecSpyServer:
         """Update internal state of a device."""
         self._processed_data.setdefault(device_id, {}).update(processed_update)
 
-    # async def _get_events(
-    #     self, lookback: int = 86400, camera=None, start_time=None, end_time=None
-    # ) -> None:
-    #     """Load the Event Log and loop through items to find motion events."""
-
-    #     event_uri = f"{self._base_url}/eventStream?version=3&format=multipart&auth={self._token}"
-
-    #     response = await self.req.get(
-    #         event_uri,
-    #         headers=self.headers,
-    #     )
-    #     if response.status != 200:
-    #         raise RequestError(
-    #             f"Fetching Eventlog failed: {response.status} - Reason: {response.reason}"
-    #         )
-
-    #     updated = {}
-    #     for event in await xmltodict.parse(response.read()):
-    #         _LOGGER.debug("EVENT STRING: %s", event)
-    #         # if event["type"] not in (EVENT_MOTION, EVENT_RING, EVENT_SMART_DETECT_ZONE):
-    #         #     continue
-
-    #         # camera_id = event["camera"]
-    #         # self._update_device(
-    #         #     camera_id,
-    #         #     process_event(event, self._minimum_score, event_ring_check_converted),
-    #         # )
-    #         # updated[camera_id] = self._processed_data[camera_id]
-
-    #     return updated
-
-
     def _reset_device_events(self) -> None:
         """Reset device events between device updates."""
         for device_id in self._processed_data:
             self._update_device(device_id, PROCESSED_EVENT_EMPTY)
-
 
     async def _setup_websocket(self):
         """Setup the Event Websocket."""
@@ -230,12 +193,14 @@ class SecSpyServer:
 
         async with self.ws_session.request("get", url) as self.ws_connection:
             async for msg in self.ws_connection.content:
-                data = msg.decode('UTF-8').strip()
+                data = msg.decode("UTF-8").strip()
                 try:
                     if data[:14].isnumeric():
                         self._process_ws_message(data)
                 except Exception as err:
-                    _LOGGER.exception("Error processing websocket message. Error: %s", err)
+                    _LOGGER.exception(
+                        "Error processing websocket message. Error: %s", err
+                    )
                     return
 
     def subscribe_websocket(self, ws_callback):
@@ -254,6 +219,8 @@ class SecSpyServer:
     def _process_ws_message(self, msg):
         """Process websocket messages."""
 
+        # pylint: disable=too-many-branches
+
         action_array = msg.split(" ")
         action_key = action_array[3]
         model_key = None
@@ -267,7 +234,7 @@ class SecSpyServer:
 
         action_json = {}
         data_json = {}
-        
+
         if model_key == "event":
             if action_key == "FILE":
                 data_json = {
@@ -282,8 +249,14 @@ class SecSpyServer:
                     "action": "update",
                     "id": action_array[2],
                 }
-            
+
             if action_key == "CLASSIFY":
+                action_json = {
+                    "modelKey": "event",
+                    "action": "update",
+                    "id": action_array[2],
+                }
+
                 if len(action_array) > 6:
                     data_json = {
                         "type": "smart",
@@ -302,12 +275,7 @@ class SecSpyServer:
                         "camera": action_array[2],
                         "HUMAN": human_score,
                         "VEHICLE": vehicle_score,
-                }
-                action_json = {
-                    "modelKey": "event",
-                    "action": "update",
-                    "id": action_array[2],
-                }
+                    }
 
             if action_key == "TRIGGER_M":
                 data_json = {
@@ -339,7 +307,7 @@ class SecSpyServer:
                 data_json = {
                     "recordingSettings": "motion",
                 }
-            if action_key == "DISARM_C" or action_key == "DISARM_M":
+            if action_key in ("DISARM_C", "DISARM_M"):
                 data_json = {
                     "recordingSettings": "never",
                 }
@@ -351,17 +319,21 @@ class SecSpyServer:
                 data_json = {
                     "online": False,
                 }
-                
+
             self._process_camera_ws_message(action_json, data_json)
             return
 
         raise ValueError(f"Unexpected model key: {model_key}")
 
-
     def _process_camera_ws_message(self, action_json, data_json):
         """Process a decoded camera websocket message."""
         camera_id, processed_camera = camera_update_from_ws_frames(
-            self._device_state_machine, self._host, action_json, data_json
+            self._device_state_machine,
+            self._host,
+            self._port,
+            self._token,
+            action_json,
+            data_json,
         )
 
         if camera_id is None:

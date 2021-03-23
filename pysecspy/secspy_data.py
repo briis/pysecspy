@@ -1,8 +1,8 @@
 """SecuritySpy Data."""
-import logging
 import datetime
-from collections import OrderedDict
+import logging
 import time
+from collections import OrderedDict
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,15 +30,12 @@ PROCESSED_EVENT_EMPTY = {
     "event_object": [],
 }
 
-REASON_CODES = {
-    "128": "Human",
-    "256": "Vehicle"
-}
+REASON_CODES = {"128": "Human", "256": "Vehicle"}
 
 
 def process_camera(server_id, host, port, token, camera, include_events):
     """Process the camera json."""
-    
+
     # If addtional keys are checked, update CAMERA_KEYS
     camera_id = camera["number"]
     # Get if camera is online
@@ -53,7 +50,9 @@ def process_camera(server_id, host, port, token, camera, include_events):
     else:
         recording_mode = "always"
     # Live Image
-    live_stream = f"http://{host}:{port}/live?cameraNum={camera_id}& viewMethod=4&auth={token}"
+    live_stream = (
+        f"http://{host}:{port}/live?cameraNum={camera_id}& viewMethod=4&auth={token}"
+    )
 
     # Other Settings
     ip_address = camera.get("address")
@@ -76,15 +75,17 @@ def process_camera(server_id, host, port, token, camera, include_events):
         camera_update["last_motion"] = (
             None
             if camera["timesincelastmotion"] is None
-            else datetime.datetime.fromtimestamp(
-                last_update / 1000
-            ).strftime("%Y-%m-%d %H:%M:%S")
+            else datetime.datetime.fromtimestamp(last_update / 1000).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
         )
 
     return camera_update
 
 
-def camera_update_from_ws_frames(state_machine, host, action_json, data_json):
+def camera_update_from_ws_frames(
+    state_machine, host, port, token, action_json, data_json
+):
     """Convert a websocket frame to internal format."""
 
     if action_json["modelKey"] != "camera":
@@ -103,9 +104,10 @@ def camera_update_from_ws_frames(state_machine, host, action_json, data_json):
         return None, None
 
     _LOGGER.debug("Processing camera: %s", camera)
-    processed_camera = process_camera(None, host, camera, True)
+    processed_camera = process_camera(None, host, port, token, camera, True)
 
     return camera_id, processed_camera
+
 
 def event_from_ws_frames(state_machine, action_json, data_json):
     """Convert a websocket frame to internal format.
@@ -191,6 +193,7 @@ def camera_event_from_ws_frames(state_machine, action_json, data_json):
         "event_score": 0,
     }
 
+
 def process_event(event):
     """Convert an event to our format."""
     start = event.get("start")
@@ -223,8 +226,12 @@ def process_event(event):
 
     return processed_event
 
+
 def _process_timestamp(time_stamp):
-    return datetime.datetime.strptime(time_stamp, "%Y%m%d%H%M%S").strftime("%Y-%m-%d %H:%M:%S")
+    return datetime.datetime.strptime(time_stamp, "%Y%m%d%H%M%S").strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+
 
 class SecspyDeviceStateMachine:
     """A simple state machine for events."""

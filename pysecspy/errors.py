@@ -12,5 +12,6 @@ class InvalidCredentials(SecuritySpyError):
 class RequestError(SecuritySpyError):
     """Define an error related to invalid requests."""
 
+
 class ResultError(SecuritySpyError):
     """Define an error related to the result returned from a request."""
