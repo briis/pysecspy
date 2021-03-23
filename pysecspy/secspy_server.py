@@ -12,6 +12,9 @@ from pysecspy.const import (
     CAMERA_MESSAGES,
     DEVICE_UPDATE_INTERVAL_SECONDS,
     EVENT_MESSAGES,
+    RECORDING_TYPE_CONTINUOUS,
+    RECORDING_TYPE_MOTION,
+    RECORDING_TYPE_OFF,
     WEBSOCKET_CHECK_INTERVAL_SECONDS,
 )
 from pysecspy.errors import RequestError
@@ -304,15 +307,15 @@ class SecSpyServer:
             }
             if action_key == "ARM_C":
                 data_json = {
-                    "recordingSettings": "always",
+                    "recordingSettings": RECORDING_TYPE_CONTINUOUS,
                 }
             if action_key == "ARM_M":
                 data_json = {
-                    "recordingSettings": "motion",
+                    "recordingSettings": RECORDING_TYPE_MOTION,
                 }
             if action_key in ("DISARM_C", "DISARM_M"):
                 data_json = {
-                    "recordingSettings": "never",
+                    "recordingSettings": RECORDING_TYPE_OFF,
                 }
             if action_key == "ONLINE":
                 data_json = {
@@ -341,7 +344,7 @@ class SecSpyServer:
             return
         _LOGGER.debug("Processed camera: %s", processed_camera)
 
-        if processed_camera["recording_mode"] == "never":
+        if processed_camera["recording_mode"] == RECORDING_TYPE_OFF:
             processed_event = camera_event_from_ws_frames(
                 self._device_state_machine, action_json, data_json
             )

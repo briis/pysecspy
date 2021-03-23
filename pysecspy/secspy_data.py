@@ -4,6 +4,12 @@ import logging
 import time
 from collections import OrderedDict
 
+from pysecspy.const import (
+    RECORDING_TYPE_CONTINUOUS,
+    RECORDING_TYPE_MOTION,
+    RECORDING_TYPE_OFF,
+)
+
 _LOGGER = logging.getLogger(__name__)
 
 CAMERA_KEYS = {
@@ -44,11 +50,11 @@ def process_camera(server_id, server_credential, camera, include_events):
     armed_always = camera["mode-c"] == "armed"
     armed_motion = camera["mode-m"] == "armed"
     if not armed_always and not armed_motion:
-        recording_mode = "never"
+        recording_mode = RECORDING_TYPE_OFF
     elif armed_motion:
-        recording_mode = "motion"
+        recording_mode = RECORDING_TYPE_MOTION
     else:
-        recording_mode = "always"
+        recording_mode = RECORDING_TYPE_CONTINUOUS
     # Live Image
     live_stream = f"http://{server_credential['host']}:{server_credential['port']}/live?cameraNum={camera_id}&viewMethod=4&auth={server_credential['token']}"
 
