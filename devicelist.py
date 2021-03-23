@@ -27,10 +27,8 @@ async def devicedata():
         PASSWORD,
     )
 
-    await secspy.update()
-    data = secspy.devices
-    print(data)
-    json.dumps(data, indent=1)
+    data = await secspy.update(True)
+    print(json.dumps(data, indent=1))
 
     # Close the Session
     await session.close()

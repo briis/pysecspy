@@ -2,6 +2,7 @@
 import asyncio
 import logging
 import time
+import json
 from base64 import b64encode
 
 import aiohttp
@@ -101,8 +102,8 @@ class SecSpyServer:
         # If the websocket is connected/connecting
         # we do not need to get events
         if self.ws_connection or self._last_websocket_check == current_time:
-            _LOGGER.debug("Skipping update since websocket is active")
-            return self._processed_data if device_update else {}
+            _LOGGER.debug("Skipping update since websocket is active.")
+            return self._processed_data # if device_update else {}
 
     async def async_connect_ws(self):
         """Connect the websocket."""
@@ -138,10 +139,9 @@ class SecSpyServer:
                 f"Fetching Camera List failed: {response.status} - Reason: {response.reason}"
             )
         data = await response.read()
-        json_response = xmltodict.parse(data)
+        json_raw = xmltodict.parse(data)
+        json_response = json.loads(json.dumps(json_raw))
         server_id = json_response["system"]["server"]["uuid"]
-        if not self.ws_connection and "lastUpdateId" in json_response:
-            self.last_update_id = json_response["lastUpdateId"]
 
         self._process_cameras_json(json_response, server_id, include_events)
 
@@ -164,6 +164,7 @@ class SecSpyServer:
     def _process_cameras_json(self, json_response, server_id, include_events):
         for camera in json_response["system"]["cameralist"]["camera"]:
             camera_id = camera["number"]
+            _LOGGER.debug("Processing Camera %s", camera_id)
             if self._is_first_update:
                 self._update_device(camera_id, PROCESSED_EVENT_EMPTY)
             self._device_state_machine.update(camera_id, camera)

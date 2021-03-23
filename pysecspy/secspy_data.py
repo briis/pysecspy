@@ -50,7 +50,7 @@ def process_camera(server_id, server_credential, camera, include_events):
     else:
         recording_mode = "always"
     # Live Image
-    live_stream = f"http://{server_credential['host']}:{server_credential['port']}/live?cameraNum={camera_id}& viewMethod=4&auth={server_credential['token']}"
+    live_stream = f"http://{server_credential['host']}:{server_credential['port']}/live?cameraNum={camera_id}&viewMethod=4&auth={server_credential['token']}"
 
     # Other Settings
     ip_address = camera.get("address")
