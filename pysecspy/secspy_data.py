@@ -198,7 +198,7 @@ def event_from_ws_frames(state_machine, action_json, data_json):
     return device_id, processed_event
 
 
-def process_event(event, minimum_score, ring_interval):
+def process_event(event):
     """Convert an event to our format."""
     start = event.get("start")
     end = event.get("end")
