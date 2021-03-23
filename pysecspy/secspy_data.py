@@ -6,6 +6,13 @@ import time
 
 _LOGGER = logging.getLogger(__name__)
 
+CAMERA_KEYS = {
+    "state",
+    "recordingSettings",
+    "lastMotion",
+    "isMotionDetected",
+}
+
 EVENT_SMART_DETECT_ZONE = "smart"
 EVENT_MOTION = "motion"
 EVENT_DISCONNECT = "disconnect"
@@ -30,126 +37,44 @@ REASON_CODES = {
 
 
 def process_camera(server_id, host, camera, include_events):
-    """Process the camera xml."""
+    """Process the camera json."""
     
     # If addtional keys are checked, update CAMERA_KEYS
 
     # Get if camera is online
     online = camera["connected"] == "yes"
     # Get Recording Mode
-    # recording_mode = str(camera["recordingSettings"]["mode"])
-    # # Get Infrared Mode
-    # ir_mode = str(camera["ispSettings"]["irLedMode"])
-    # # Get Status Light Setting
-    # status_light = camera["ledSettings"]["isEnabled"]
-
-    # # Get when the camera came online
-    # upsince = (
-    #     "Offline"
-    #     if camera["upSince"] is None
-    #     else datetime.datetime.fromtimestamp(int(camera["upSince"]) / 1000).strftime(
-    #         "%Y-%m-%d %H:%M:%S"
-    #     )
-    # )
-    # # Check if Regular Camera or Doorbell
-    # device_type = (
-    #     "camera" if "doorbell" not in str(camera["type"]).lower() else "doorbell"
-    # )
-    # # Get Firmware Version
-    # firmware_version = str(camera["firmwareVersion"])
-
-    # # Get High FPS Video Mode
-    # featureflags = camera.get("featureFlags")
-    # has_highfps = "highFps" in featureflags.get("videoModes", "")
-    # video_mode = camera.get("videoMode") or "default"
-    # # Get HDR Mode
-    # has_hdr = featureflags.get("hasHdr")
-    # hdr_mode = camera.get("hdrMode") or False
-    # # Doorbell Chime
-    # has_chime = featureflags.get("hasChime")
-    # chime_enabled = camera.get("chimeDuration") not in CHIME_DISABLED
-    # chime_duration = camera.get("chimeDuration")
-    # # Get Microphone Volume
-    # mic_volume = camera.get("micVolume") or 0
-    # # Get SmartDetect capabilities
-    # has_smartdetect = featureflags.get("hasSmartDetect")
-    # # Get if soroundings are Dark
-    # is_dark = camera.get("isDark") or False
-    # # Get Optical Zom capabilities
-    # has_opticalzoom = featureflags.get("canOpticalZoom")
-    # zoom_position = str(camera["ispSettings"]["zoomPosition"])
-    # # Wide Dynamic Range
-    # wdr = str(camera["ispSettings"]["wdr"])
-    # # Get Privacy Mode
-    # privacyzones = camera.get("privacyZones")
-    # privacy_on = False
-    # for row in privacyzones:
-    #     if row["name"] == ZONE_NAME:
-    #         privacy_on = row["points"] == PRIVACY_ON
-    #         break
-
-    # # Add rtsp streaming url if enabled
-    # rtsp = None
-    # channels = camera["channels"]
-    # for channel in channels:
-    #     if channel["isRtspEnabled"]:
-    #         rtsp = f"rtsp://{host}:7447/{channel['rtspAlias']}"
-    #         break
-
-    # camera_update = {
-    #     "name": str(camera["name"]),
-    #     "type": camera["devicetype"],
-    #     "model": str(camera["type"]),
-    #     "mac": str(camera["mac"]),
-    #     "ip_address": str(camera["host"]),
-    #     "firmware_version": firmware_version,
-    #     "recording_mode": recording_mode,
-    #     "ir_mode": ir_mode,
-    #     "status_light": status_light,
-    #     "rtsp": rtsp,
-    #     "up_since": upsince,
-    #     "online": online,
-    #     "has_highfps": has_highfps,
-    #     "has_hdr": has_hdr,
-    #     "video_mode": video_mode,
-    #     "hdr_mode": hdr_mode,
-    #     "mic_volume": mic_volume,
-    #     "has_smartdetect": has_smartdetect,
-    #     "is_dark": is_dark,
-    #     "privacy_on": privacy_on,
-    #     "has_opticalzoom": has_opticalzoom,
-    #     "zoom_position": zoom_position,
-    #     "wdr": wdr,
-    #     "has_chime": has_chime,
-    #     "chime_enabled": chime_enabled,
-    #     "chime_duration": chime_duration,
-    # }
+    armed_always = camera["mode-c"] == "armed"
+    armed_motion = camera["mode-m"] == "armed"
+    if not armed_always and not armed_motion:
+        recording_mode = "never"
+    elif armed_motion:
+        recording_mode = "motion"
+    else:
+        recording_mode = "always"
+    # Other Settings
+    ip_address = camera.get("address")
     camera_update = {
         "name": str(camera["name"]),
         "type": camera["devicetype"],
         "model": str(camera["devicename"]),
         "online": online,
+        "recording_mode": recording_mode,
+        "ip_address": ip_address,
     }
 
     if server_id is not None:
         camera_update["server_id"] = server_id
-    # if include_events:
-    #     # Get the last time motion occured
-    #     camera_update["last_motion"] = (
-    #         None
-    #         if camera["lastMotion"] is None
-    #         else datetime.datetime.fromtimestamp(
-    #             int(camera["lastMotion"]) / 1000
-    #         ).strftime("%Y-%m-%d %H:%M:%S")
-    #     )
-    #     # Get the last time doorbell was ringing
-    #     camera_update["last_ring"] = (
-    #         None
-    #         if camera.get("lastRing") is None
-    #         else datetime.datetime.fromtimestamp(
-    #             int(camera["lastRing"]) / 1000
-    #         ).strftime("%Y-%m-%d %H:%M:%S")
-    #     )
+    if include_events:
+        # Get the last time motion occured
+        last_update = int(time.time()) + int(camera["timesincelastmotion"])
+        camera_update["last_motion"] = (
+            None
+            if camera["timesincelastmotion"] is None
+            else datetime.datetime.fromtimestamp(
+                last_update / 1000
+            ).strftime("%Y-%m-%d %H:%M:%S")
+        )
 
     return camera_update
 
@@ -223,7 +148,7 @@ def event_from_ws_frames(state_machine, action_json, data_json):
 def camera_event_from_ws_frames(state_machine, action_json, data_json):
     """Create processed events from the camera model."""
 
-    if "isMotionDetected" not in data_json and "lastMotion" not in data_json:
+    if "isMotionDetected" not in data_json and "timesincelastmotion" not in data_json:
         return None
 
     camera_id = action_json["id"]
@@ -231,7 +156,7 @@ def camera_event_from_ws_frames(state_machine, action_json, data_json):
     event_length = 0
     event_on = False
 
-    last_motion = data_json.get("lastMotion")
+    last_motion = int(time.time()) + int(data_json["timesincelastmotion"])
     is_motion_detected = data_json.get("isMotionDetected")
 
     if is_motion_detected is None:

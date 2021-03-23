@@ -98,10 +98,10 @@ class SecSpyServer:
             _LOGGER.debug("Skipping update since websocket is active")
             return self._processed_data if device_update else {}
 
-        self._reset_device_events()
-        updates = await self._get_events(lookback=10)
+        # self._reset_device_events()
+        # updates = await self._get_events(lookback=10)
 
-        return self._processed_data if device_update else updates
+        # return self._processed_data if device_update else updates
 
     async def async_connect_ws(self):
         """Connect the websocket."""
@@ -139,8 +139,8 @@ class SecSpyServer:
         data = await response.read()
         json_response = xmltodict.parse(data)
         server_id = json_response["system"]["server"]["uuid"]
-        # if not self.ws_connection and "lastUpdateId" in json_response:
-        #     self.last_update_id = json_response["lastUpdateId"]
+        if not self.ws_connection and "lastUpdateId" in json_response:
+            self.last_update_id = json_response["lastUpdateId"]
 
         self._process_cameras_json(json_response, server_id, include_events)
 
@@ -167,36 +167,36 @@ class SecSpyServer:
         """Update internal state of a device."""
         self._processed_data.setdefault(device_id, {}).update(processed_update)
 
-    async def _get_events(
-        self, lookback: int = 86400, camera=None, start_time=None, end_time=None
-    ) -> None:
-        """Load the Event Log and loop through items to find motion events."""
+    # async def _get_events(
+    #     self, lookback: int = 86400, camera=None, start_time=None, end_time=None
+    # ) -> None:
+    #     """Load the Event Log and loop through items to find motion events."""
 
-        event_uri = f"{self._base_url}/eventStream?version=3&format=multipart&auth={self._token}"
+    #     event_uri = f"{self._base_url}/eventStream?version=3&format=multipart&auth={self._token}"
 
-        response = await self.req.get(
-            event_uri,
-            headers=self.headers,
-        )
-        if response.status != 200:
-            raise RequestError(
-                f"Fetching Eventlog failed: {response.status} - Reason: {response.reason}"
-            )
+    #     response = await self.req.get(
+    #         event_uri,
+    #         headers=self.headers,
+    #     )
+    #     if response.status != 200:
+    #         raise RequestError(
+    #             f"Fetching Eventlog failed: {response.status} - Reason: {response.reason}"
+    #         )
 
-        updated = {}
-        for event in await xmltodict.parse(response.read()):
-            _LOGGER.debug("EVENT STRING: %s", event)
-            # if event["type"] not in (EVENT_MOTION, EVENT_RING, EVENT_SMART_DETECT_ZONE):
-            #     continue
+    #     updated = {}
+    #     for event in await xmltodict.parse(response.read()):
+    #         _LOGGER.debug("EVENT STRING: %s", event)
+    #         # if event["type"] not in (EVENT_MOTION, EVENT_RING, EVENT_SMART_DETECT_ZONE):
+    #         #     continue
 
-            # camera_id = event["camera"]
-            # self._update_device(
-            #     camera_id,
-            #     process_event(event, self._minimum_score, event_ring_check_converted),
-            # )
-            # updated[camera_id] = self._processed_data[camera_id]
+    #         # camera_id = event["camera"]
+    #         # self._update_device(
+    #         #     camera_id,
+    #         #     process_event(event, self._minimum_score, event_ring_check_converted),
+    #         # )
+    #         # updated[camera_id] = self._processed_data[camera_id]
 
-        return updated
+    #     return updated
 
 
     def _reset_device_events(self) -> None:
@@ -221,20 +221,6 @@ class SecSpyServer:
                 except Exception as err:
                     _LOGGER.exception("Error processing websocket message. Error: %s", err)
                     return
-
-        # try:
-        #     async with self.ws_session.request("get", url) as self.ws_connection:
-        #         async for msg in self.ws_connection.content:
-        #             data = msg.decode('UTF-8').strip()
-        #             try:
-        #                 if data[:14].isnumeric():
-        #                     self._process_ws_message(data)
-        #             except Exception as err:
-        #                 _LOGGER.exception("Error processing websocket message. Error: %s", err)
-        #                 return
-        # finally:
-        #     _LOGGER.debug("websocket disconnected")
-        #     self.ws_connection = None
 
     def subscribe_websocket(self, ws_callback):
         """Subscribe to websocket events.
@@ -273,6 +259,7 @@ class SecSpyServer:
                     "end": action_array[0],
                     "camera": action_array[2],
                     "file_name": action_array[4],
+                    "isMotionDetected": False,
                 }
                 action_json = {
                     "modelKey": "event",
@@ -312,6 +299,7 @@ class SecSpyServer:
                     "start": action_array[0],
                     "camera": action_array[2],
                     "reason": action_array[4],
+                    "isMotionDetected": True,
                 }
                 action_json = {
                     "modelKey": "event",
