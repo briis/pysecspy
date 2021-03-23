@@ -29,6 +29,7 @@ async def devicedata():
 
     data = await secspy.update(True)
     print(json.dumps(data, indent=1))
+    # await secspy.set_camera_recording("0", "on_motion")
 
     # Close the Session
     await session.close()

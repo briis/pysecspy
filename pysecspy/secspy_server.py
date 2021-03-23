@@ -164,6 +164,39 @@ class SecSpyServer:
             )
         return await response.read()
 
+    async def set_camera_recording(self, camera_id: str, mode: str) -> bool:
+        """Sets the camera recoding mode to what is supplied with 'mode'.
+        Valid inputs for mode: off, on_motion, continuous, smartDetect
+        http://192.168.1.195:8000/setSchedule?cameraNum=0&schedule=0&override=0&mode=M&auth=YWRtaW46c2tpdEh0N0tMc2Z5
+        """
+
+        camera_data = self._processed_data.get(camera_id)
+        cur_rec_mode = camera_data.get("recording_mode")
+
+        rec_mode = "M"
+        schedule = 1
+
+        if mode in RECORDING_TYPE_OFF:
+            rec_mode = cur_rec_mode
+            schedule = 0
+
+        if mode in RECORDING_TYPE_CONTINUOUS:
+            rec_mode = "C"
+            schedule = 1
+
+        cam_uri = f"{self._base_url}/setSchedule?cameraNum={camera_id}&schedule={schedule}&override=0&mode={rec_mode}&auth={self._token}"
+
+        response = await self.req.get(
+            cam_uri,
+            headers=self.headers,
+        )
+        if response.status != 200:
+            raise RequestError(
+                f"Setting Recording mode failed: {response.status} - Reason: {response.reason}"
+            )
+
+        return True
+        
     def _process_cameras_json(self, json_response, server_id, include_events):
         for camera in json_response["system"]["cameralist"]["camera"]:
             camera_id = camera["number"]
