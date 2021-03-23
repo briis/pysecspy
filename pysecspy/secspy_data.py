@@ -1,9 +1,16 @@
 """SecuritySpy Data."""
 import logging
-import struct
+import datetime
 from collections import OrderedDict
+import time
 
 _LOGGER = logging.getLogger(__name__)
+
+EVENT_SMART_DETECT_ZONE = "smart"
+EVENT_MOTION = "motion"
+EVENT_DISCONNECT = "disconnect"
+
+EVENT_LENGTH_PRECISION = 3
 
 MAX_SUPPORTED_CAMERAS = 256
 MAX_EVENT_HISTORY_IN_STATE_MACHINE = MAX_SUPPORTED_CAMERAS * 2
@@ -11,10 +18,14 @@ MAX_EVENT_HISTORY_IN_STATE_MACHINE = MAX_SUPPORTED_CAMERAS * 2
 PROCESSED_EVENT_EMPTY = {
     "event_start": None,
     "event_on": False,
-    "event_ring_on": False,
     "event_type": None,
     "event_length": 0,
     "event_object": [],
+}
+
+REASON_CODES = {
+    "128": "Human",
+    "256": "Vehicle"
 }
 
 
@@ -142,32 +153,45 @@ def process_camera(server_id, host, camera, include_events):
 
     return camera_update
 
+
+def camera_update_from_ws_frames(state_machine, host, action_json, data_json):
+    """Convert a websocket frame to internal format."""
+
+    if action_json["modelKey"] != "camera":
+        raise ValueError("Model key must be camera")
+
+    camera_id = action_json["id"]
+
+    if not state_machine.has_device(camera_id):
+        _LOGGER.debug("Skipping non-adopted camera: %s", data_json)
+        return None, None
+
+    camera = state_machine.update(camera_id, data_json)
+
+    if data_json.keys().isdisjoint(CAMERA_KEYS):
+        _LOGGER.debug("Skipping camera data: %s", data_json)
+        return None, None
+
+    _LOGGER.debug("Processing camera: %s", camera)
+    processed_camera = process_camera(None, host, camera, True)
+
+    return camera_id, processed_camera
+
 def event_from_ws_frames(state_machine, action_json, data_json):
     """Convert a websocket frame to internal format.
 
-    Smart Detect Event Add:
-    {'action': 'add', 'newUpdateId': '032615bb-910d-41bf-8710-b04959f24455', 'modelKey': 'event', 'id': '5fb0c89003085203870013d0'}
-    {'type': 'smartDetectZone', 'start': 1605421197481, 'score': 98, 'smartDetectTypes': ['person'], 'smartDetectEvents': [], 'camera': '5f9f43f102f7d90387004da5', 'partition': None, 'id': '5fb0c89003085203870013d0', 'modelKey': 'event'}
+    20140927091955 1 3 ARM_C
+    20190927091955 2 3 ARM_M
+    20190927092026 3 3 MOTION 760 423 320 296
+    20190927092026 4 3 CLASSIFY HUMAN 99
+    20190927092026 5 3 TRIGGER_M 9
+    20190927092036 6 3 MOTION 0 432 260 198
+    20190927092036 7 3 CLASSIFY HUMAN 5 VEHICLE 95
+    20190927092040 8 X NULL
+    20190927092050 9 3 FILE /Volumes/VolName/Cam/2019-07-26/26-07-2019 15-52-00 C Cam.m4v
+    20190927092055 10 3 DISARM_M
+    20190927092056 11 3 OFFLINE
 
-    Smart Detect Event Update:
-    {'action': 'update', 'newUpdateId': '84c74562-bb14-4426-8b92-84ae80d1fb4a', 'modelKey': 'event', 'id': '5fb0c92303b75203870013db'}
-    {'end': 1605421366608, 'score': 52}
-
-    Camera Motion Start (event):
-    {'action': 'add', 'newUpdateId': '25b1142a-2d0d-4b85-b97e-401b03dd1f0b', 'modelKey': 'event', 'id': '5fb0c90603455203870013d7'}
-    {'type': 'motion', 'start': 1605421315759, 'score': 0, 'smartDetectTypes': [], 'smartDetectEvents': [], 'camera': '5e539ed503617003870003ed', 'partition': None, 'id': '5fb0c90603455203870013d7', 'modelKey': 'event'}
-
-    Camera Motion End (event):
-    {'action': 'update', 'newUpdateId': 'aa1c159c-c575-443a-9e57-b63ed847549c', 'modelKey': 'event', 'id': '5fb0c90603455203870013d7'}
-    {'end': 1605421330342, 'score': 46}
-
-    Camera Ring (event)
-    {'action': 'add', 'newUpdateId': 'da36377d-b947-4b05-ba11-c17b0d2703f9', 'modelKey': 'event', 'id': '5fb1964b03b352038700184d'}
-    {'type': 'ring', 'start': 1605473867945, 'end': 1605473868945, 'score': 0, 'smartDetectTypes': [], 'smartDetectEvents': [], 'camera': '5f9f43f102f7d90387004da5', 'partition': None, 'id': '5fb1964b03b352038700184d', 'modelKey': 'event'}
-
-    Light Motion (event)
-    {'action': 'update', 'newUpdateId': '41fddb04-e79f-4726-945f-0de74294045e', 'modelKey': 'light', 'id': '5fec968501ce7d038700539b'}
-    {'isPirMotionDetected': True, 'lastMotion': 1609579367419}
     """
 
     if action_json["modelKey"] != "event":
@@ -177,9 +201,7 @@ def event_from_ws_frames(state_machine, action_json, data_json):
     event_id = action_json["id"]
 
     if action == "add":
-        device_id = (
-            data_json.get("camera") or data_json.get("light") or data_json.get("sensor")
-        )
+        device_id = data_json.get("camera")
         if device_id is None:
             return None, None
         state_machine.add(event_id, data_json)
@@ -188,22 +210,63 @@ def event_from_ws_frames(state_machine, action_json, data_json):
         event = state_machine.update(event_id, data_json)
         if not event:
             return None, None
-        device_id = event.get("camera") or event.get("light") or data_json.get("sensor")
+        device_id = event.get("camera")
     else:
         raise ValueError("The action must be add or update")
 
     _LOGGER.debug("Processing event: %s", event)
-    processed_event = process_event(event, minimum_score, LIVE_RING_FROM_WEBSOCKET)
+    processed_event = process_event(event)
 
     return device_id, processed_event
 
+
+def camera_event_from_ws_frames(state_machine, action_json, data_json):
+    """Create processed events from the camera model."""
+
+    if "isMotionDetected" not in data_json and "lastMotion" not in data_json:
+        return None
+
+    camera_id = action_json["id"]
+    start_time = None
+    event_length = 0
+    event_on = False
+
+    last_motion = data_json.get("lastMotion")
+    is_motion_detected = data_json.get("isMotionDetected")
+
+    if is_motion_detected is None:
+        start_time = state_machine.get_motion_detected_time(camera_id)
+        event_on = start_time is not None
+    else:
+        if is_motion_detected:
+            event_on = True
+            start_time = last_motion
+            state_machine.set_motion_detected_time(camera_id, start_time)
+        else:
+            start_time = state_machine.get_motion_detected_time(camera_id)
+            state_machine.set_motion_detected_time(camera_id, None)
+            if last_motion is None:
+                last_motion = round(time.time() * 1000)
+
+    if start_time is not None and last_motion is not None:
+        event_length = round(
+            (float(last_motion) - float(start_time)) / 1000, EVENT_LENGTH_PRECISION
+        )
+
+    return {
+        "event_on": event_on,
+        "event_type": "motion",
+        "event_start": start_time,
+        "event_length": event_length,
+        "event_score": 0,
+    }
 
 def process_event(event):
     """Convert an event to our format."""
     start = event.get("start")
     end = event.get("end")
     event_type = event.get("type")
-    score = event.get("score")
+    event_reason = event.get("reason")
 
     event_length = 0
     start_time = None
@@ -217,39 +280,21 @@ def process_event(event):
 
     processed_event = {
         "event_on": False,
-        "event_ring_on": False,
         "event_type": event_type,
         "event_start": start_time,
         "event_length": event_length,
-        "event_score": score,
-        "event_object": event.get("smartDetectTypes"),
+        "event_object": REASON_CODES.get(event_reason),
     }
 
     if event_type in (EVENT_MOTION, EVENT_SMART_DETECT_ZONE):
         processed_event["last_motion"] = start_time
-        if score is not None and int(score) >= minimum_score and not end:
+        if not end:
             processed_event["event_on"] = True
-    elif event_type == EVENT_RING:
-        processed_event["last_ring"] = start_time
-        if ring_interval == LIVE_RING_FROM_WEBSOCKET or not end:
-            _LOGGER.debug("EVENT: DOORBELL IS RINGING")
-            processed_event["event_ring_on"] = True
-        elif start >= ring_interval and end >= ring_interval:
-            _LOGGER.debug("EVENT: DOORBELL HAS RUNG IN LAST 3 SECONDS!")
-            processed_event["event_ring_on"] = True
-        else:
-            _LOGGER.debug("EVENT: DOORBELL WAS NOT RUNG IN LAST 3 SECONDS")
-
-    thumbail = event.get("thumbnail")
-    if thumbail is not None:  # Only update if there is a new Motion Event
-        processed_event["event_thumbnail"] = thumbail
-
-    heatmap = event.get("heatmap")
-    if heatmap is not None:  # Only update if there is a new Motion Event
-        processed_event["event_heatmap"] = heatmap
 
     return processed_event
 
+def _process_timestamp(time_stamp):
+    return datetime.datetime.strptime(time_stamp, "%Y%m%d%H%M%S").strftime("%Y-%m-%d %H:%M:%S")
 
 class SecspyDeviceStateMachine:
     """A simple state machine for events."""

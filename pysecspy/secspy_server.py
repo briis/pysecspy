@@ -11,11 +11,15 @@ from aiohttp import client_exceptions
 from base64 import b64encode
 
 from pysecspy.const import (
+    CAMERA_MESSAGES,
+    EVENT_MESSAGES,
     DEVICE_UPDATE_INTERVAL_SECONDS,
     WEBSOCKET_CHECK_INTERVAL_SECONDS,
 )
 
 from pysecspy.secspy_data import (
+    camera_event_from_ws_frames,
+    camera_update_from_ws_frames,
     event_from_ws_frames,
     process_camera,
     PROCESSED_EVENT_EMPTY,
@@ -208,16 +212,29 @@ class SecSpyServer:
             self.ws_session = aiohttp.ClientSession()
         _LOGGER.debug("WS connecting to: %s", url)
 
-        try:
-            async with self.ws_session.request("get", url) as self.ws_connection:
-                async for msg in self.ws_connection.content:
-                    data = msg.decode('UTF-8')
+        async with self.ws_session.request("get", url) as self.ws_connection:
+            async for msg in self.ws_connection.content:
+                data = msg.decode('UTF-8').strip()
+                try:
                     if data[:14].isnumeric():
-                        self._process_ws_message("event", data)
-                        await asyncio.sleep(0.1)
-        finally:
-            _LOGGER.debug("websocket disconnected")
-            self.ws_connection = None
+                        self._process_ws_message(data)
+                except Exception as err:
+                    _LOGGER.exception("Error processing websocket message. Error: %s", err)
+                    return
+
+        # try:
+        #     async with self.ws_session.request("get", url) as self.ws_connection:
+        #         async for msg in self.ws_connection.content:
+        #             data = msg.decode('UTF-8').strip()
+        #             try:
+        #                 if data[:14].isnumeric():
+        #                     self._process_ws_message(data)
+        #             except Exception as err:
+        #                 _LOGGER.exception("Error processing websocket message. Error: %s", err)
+        #                 return
+        # finally:
+        #     _LOGGER.debug("websocket disconnected")
+        #     self.ws_connection = None
 
     def subscribe_websocket(self, ws_callback):
         """Subscribe to websocket events.
@@ -232,97 +249,130 @@ class SecSpyServer:
         self._ws_subscriptions.append(ws_callback)
         return _unsub_ws_callback
 
-    def _process_ws_message(self, model_key, msg):
+    def _process_ws_message(self, msg):
         """Process websocket messages."""
 
         action_array = msg.split(" ")
         action_key = action_array[3]
-
-        if action_key not in (
-            "MOTION",
-            "FILE",
-            "CLASSIFY",
-            "TRIGGER_M"
-        ):
-            return
+        model_key = None
+        if action_array[3] in CAMERA_MESSAGES:
+            model_key = "camera"
+        if action_array[3] in EVENT_MESSAGES:
+            model_key = "event"
 
         if model_key not in ("event", "camera"):
             return
 
-        _LOGGER.debug("Action Frame: %s", action_key)
-
         action_json = {}
         data_json = {}
-        if action_key == "MOTION":
-            data_json = {
-                "timestamp": action_array[0],
-                "camera_id": action_array[2],
-                "X": action_array[4],
-                "Y": action_array[5],
-                "W": action_array[6],
-                "H": action_array[7],
-            }
-            action_json = {
-                "modelKey": "event",
-                "action": "update",
-                "id": action_array[2],
-            }
         
-        if action_key == "FILE":
-            data_json = {
-                "timestamp": action_array[0],
-                "camera_id": action_array[2],
-                "file_name": action_array[4],
-            }
-            action_json = {
-                "modelKey": "event",
-                "action": "update",
-                "id": action_array[2],
-            }
-        
-        if action_key == "CLASSIFY":
-            if len(action_array) > 6:
-                data_json = {
-                    "timestamp": action_array[0],
-                    "camera_id": action_array[2],
-                    action_array[4]: action_array[5],
-                    action_array[6]: action_array[7],
-                }
-            else:
-                data_json = {
-                    "timestamp": action_array[0],
-                    "camera_id": action_array[2],
-                    action_array[4]: action_array[5],
-                }
-            action_json = {
-                "modelKey": "event",
-                "action": "update",
-                "id": action_array[2],
-            }
-
-        if action_key == "TRIGGER_M":
-            data_json = {
-                "timestamp": action_array[0],
-                "camera_id": action_array[2],
-                "reason": action_array[4],
-            }
-            action_json = {
-                "modelKey": "event",
-                "action": "add",
-                "id": action_array[2],
-            }
-
-        _LOGGER.debug("Data Frame: %s", data_json)
-
         if model_key == "event":
+            if action_key == "FILE":
+                data_json = {
+                    "type": "motion",
+                    "end": action_array[0],
+                    "camera": action_array[2],
+                    "file_name": action_array[4],
+                }
+                action_json = {
+                    "modelKey": "event",
+                    "action": "update",
+                    "id": action_array[2],
+                }
+            
+            if action_key == "CLASSIFY":
+                if len(action_array) > 6:
+                    data_json = {
+                        "type": "smart",
+                        "camera": action_array[2],
+                        action_array[4]: action_array[5],
+                        action_array[6]: action_array[7],
+                    }
+                else:
+                    human_score = action_array[5]
+                    vehicle_score = 0
+                    if "HUMAN" not in action_array:
+                        human_score = 0
+                        vehicle_score = action_array[5]
+                    data_json = {
+                        "type": "smart",
+                        "camera": action_array[2],
+                        "HUMAN": human_score,
+                        "VEHICLE": vehicle_score,
+                }
+                action_json = {
+                    "modelKey": "event",
+                    "action": "update",
+                    "id": action_array[2],
+                }
+
+            if action_key == "TRIGGER_M":
+                data_json = {
+                    "type": "motion",
+                    "start": action_array[0],
+                    "camera": action_array[2],
+                    "reason": action_array[4],
+                }
+                action_json = {
+                    "modelKey": "event",
+                    "action": "add",
+                    "id": action_array[2],
+                }
+
             self._process_event_ws_message(action_json, data_json)
             return
 
-        # if model_key == "camera":
-        #     self._process_camera_ws_message(action_json, data_json)
-        #     return
+        if model_key == "camera":
+            action_json = {
+                "modelKey": "camera",
+                "id": action_array[2],
+            }
+            if action_key == "ARM_C":
+                data_json = {
+                    "recordingSettings": "always",
+                }
+            if action_key == "ARM_M":
+                data_json = {
+                    "recordingSettings": "motion",
+                }
+            if action_key == "DISARM_C" or action_key == "DISARM_M":
+                data_json = {
+                    "recordingSettings": "never",
+                }
+            if action_key == "ONLINE":
+                data_json = {
+                    "online": True,
+                }
+            if action_key == "OFFLINE":
+                data_json = {
+                    "online": False,
+                }
+                
+            self._process_camera_ws_message(action_json, data_json)
+            return
 
         raise ValueError(f"Unexpected model key: {model_key}")
+
+
+    def _process_camera_ws_message(self, action_json, data_json):
+        """Process a decoded camera websocket message."""
+        camera_id, processed_camera = camera_update_from_ws_frames(
+            self._device_state_machine, self._host, action_json, data_json
+        )
+
+        if camera_id is None:
+            return
+        _LOGGER.debug("Processed camera: %s", processed_camera)
+
+        if processed_camera["recording_mode"] == "never":
+            processed_event = camera_event_from_ws_frames(
+                self._device_state_machine, action_json, data_json
+            )
+            if processed_event is not None:
+                _LOGGER.debug("Processed camera event: %s", processed_event)
+                processed_camera.update(processed_event)
+
+        self.fire_event(camera_id, processed_camera)
 
     def _process_event_ws_message(self, action_json, data_json):
         """Process a decoded event websocket message."""
@@ -336,14 +386,6 @@ class SecSpyServer:
         _LOGGER.debug("Procesed event: %s", processed_event)
 
         self.fire_event(device_id, processed_event)
-
-        if processed_event["event_ring_on"]:
-            # The websocket will not send any more events since
-            # doorbell rings do not have a length. We fire an
-            # additional event to turn off the ring.
-            processed_event["event_ring_on"] = False
-            self.fire_event(device_id, processed_event)
-
 
     def fire_event(self, device_id, processed_event):
         """Callback and event to the subscribers and update data."""

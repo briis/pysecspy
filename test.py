@@ -1,8 +1,6 @@
-EVENT = "20190927092036 7 3 CLASSIFY HUMAN 5 VEHICLE 95"
-action_array = EVENT.split(" ")
+import datetime
 
-if "HUMAN" in action_array:
-    print("HUMAN")
+TIME = "20210323074817"
 
-if "VEHICLE" in action_array:
-    print("VEHICLE")
+newtime = datetime.datetime.strptime(TIME, "%Y%m%d%H%M%S").strftime("%Y-%m-%d %H:%M:%S")
+print(newtime)
