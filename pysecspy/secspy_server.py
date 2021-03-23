@@ -49,11 +49,15 @@ class SecSpyServer:
             bytes(f"{self._username}:{self._password}", "utf-8")
         ).decode()
         self.headers = {"Content-Type": "text/xml"}
-        self._is_authenticated = False
         self._last_device_update_time = 0
         self._last_websocket_check = 0
         self._device_state_machine = SecspyDeviceStateMachine()
         self._event_state_machine = SecspyEventStateMachine()
+        self.server_credential = {
+            "host": self._host,
+            "port": self._port,
+            "token": self._token,
+        }
 
         self._processed_data = {}
         self.last_update_id = None
@@ -167,9 +171,7 @@ class SecSpyServer:
                 camera_id,
                 process_camera(
                     server_id,
-                    self._host,
-                    self._port,
-                    self._token,
+                    self.server_credential,
                     camera,
                     include_events or self._is_first_update,
                 ),
@@ -329,9 +331,7 @@ class SecSpyServer:
         """Process a decoded camera websocket message."""
         camera_id, processed_camera = camera_update_from_ws_frames(
             self._device_state_machine,
-            self._host,
-            self._port,
-            self._token,
+            self.server_credential,
             action_json,
             data_json,
         )

@@ -33,7 +33,7 @@ PROCESSED_EVENT_EMPTY = {
 REASON_CODES = {"128": "Human", "256": "Vehicle"}
 
 
-def process_camera(server_id, host, port, token, camera, include_events):
+def process_camera(server_id, server_credential, camera, include_events):
     """Process the camera json."""
 
     # If addtional keys are checked, update CAMERA_KEYS
@@ -50,9 +50,7 @@ def process_camera(server_id, host, port, token, camera, include_events):
     else:
         recording_mode = "always"
     # Live Image
-    live_stream = (
-        f"http://{host}:{port}/live?cameraNum={camera_id}& viewMethod=4&auth={token}"
-    )
+    live_stream = f"http://{server_credential['host']}:{server_credential['port']}/live?cameraNum={camera_id}& viewMethod=4&auth={server_credential['token']}"
 
     # Other Settings
     ip_address = camera.get("address")
@@ -84,7 +82,7 @@ def process_camera(server_id, host, port, token, camera, include_events):
 
 
 def camera_update_from_ws_frames(
-    state_machine, host, port, token, action_json, data_json
+    state_machine, server_credential, action_json, data_json
 ):
     """Convert a websocket frame to internal format."""
 
@@ -104,7 +102,7 @@ def camera_update_from_ws_frames(
         return None, None
 
     _LOGGER.debug("Processing camera: %s", camera)
-    processed_camera = process_camera(None, host, port, token, camera, True)
+    processed_camera = process_camera(None, server_credential, camera, True)
 
     return camera_id, processed_camera
 
