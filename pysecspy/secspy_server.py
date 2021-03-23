@@ -147,6 +147,20 @@ class SecSpyServer:
         self._is_first_update = False
 
 
+    async def get_snapshot_image(self, camera_id: str) -> bytes:
+        """ Returns a Snapshot image from the specified Camera. """
+        image_uri = f"http://{self._base_url}/image?cameraNum={camera_id}&width=1920&height=1080&quality=75&auth={self._token}"
+
+        response = await self.req.get(
+            image_uri,
+            headers=self.headers,
+        )
+        if response.status != 200:
+            raise RequestError(
+                f"Fetching Snapshot Image failed: {response.status} - Reason: {response.reason}"
+            )
+        return await response.read()
+
     def _process_cameras_json(self, json_response, server_id, include_events):
         for camera in json_response["system"]["cameralist"]["camera"]:
             camera_id = camera["number"]
@@ -158,6 +172,8 @@ class SecSpyServer:
                 process_camera(
                     server_id,
                     self._host,
+                    self._port,
+                    self._token,
                     camera,
                     include_events or self._is_first_update,
                 ),

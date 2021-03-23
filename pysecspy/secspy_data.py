@@ -36,11 +36,11 @@ REASON_CODES = {
 }
 
 
-def process_camera(server_id, host, camera, include_events):
+def process_camera(server_id, host, port, token, camera, include_events):
     """Process the camera json."""
     
     # If addtional keys are checked, update CAMERA_KEYS
-
+    camera_id = camera["number"]
     # Get if camera is online
     online = camera["connected"] == "yes"
     # Get Recording Mode
@@ -52,8 +52,12 @@ def process_camera(server_id, host, camera, include_events):
         recording_mode = "motion"
     else:
         recording_mode = "always"
+    # Live Image
+    live_stream = f"http://{host}:{port}/live?cameraNum={camera_id}& viewMethod=4&auth={token}"
+
     # Other Settings
     ip_address = camera.get("address")
+
     camera_update = {
         "name": str(camera["name"]),
         "type": camera["devicetype"],
@@ -61,6 +65,7 @@ def process_camera(server_id, host, camera, include_events):
         "online": online,
         "recording_mode": recording_mode,
         "ip_address": ip_address,
+        "live_stream": live_stream,
     }
 
     if server_id is not None:
