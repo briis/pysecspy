@@ -56,7 +56,8 @@ def process_camera(server_id, server_credential, camera, include_events):
     else:
         recording_mode = RECORDING_TYPE_CONTINUOUS
     # Live Image
-    live_stream = f"http://{server_credential['host']}:{server_credential['port']}/live?cameraNum={camera_id}&viewMethod=4&auth={server_credential['token']}"
+    # stream?cameraNum=X[&codec=X][&width=X][&height=X][&req_fps=X]
+    live_stream = f"rtsp://{server_credential['host']}:{server_credential['port']}/stream?cameraNum={camera_id}&codec=h264&auth={server_credential['token']}"
 
     # Other Settings
     ip_address = camera.get("address")
