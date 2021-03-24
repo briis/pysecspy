@@ -9,3 +9,6 @@ EVENT_MESSAGES = ["TRIGGER_M", "FILE"]
 RECORDING_TYPE_MOTION = "on_motion"
 RECORDING_TYPE_CONTINUOUS = "continuous"
 RECORDING_TYPE_OFF = "off"
+
+SERVER_ID = "server_id"
+SERVER_NAME = "server_name"

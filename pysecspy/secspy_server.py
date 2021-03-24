@@ -15,6 +15,8 @@ from pysecspy.const import (
     RECORDING_TYPE_CONTINUOUS,
     RECORDING_TYPE_MOTION,
     RECORDING_TYPE_OFF,
+    SERVER_ID,
+    SERVER_NAME,
     WEBSOCKET_CHECK_INTERVAL_SECONDS,
 )
 from pysecspy.errors import RequestError
@@ -149,6 +151,39 @@ class SecSpyServer:
         self._process_cameras_json(json_response, server_id, include_events)
 
         self._is_first_update = False
+
+    async def _get_server_information(self) -> None:
+        """Return information about the SecuritySpy Server."""
+
+        system_uri = f"{self._base_url}/systemInfo?auth={self._token}"
+        response = await self.req.get(
+            system_uri,
+            headers=self.headers,
+        )
+        if response.status != 200:
+            raise RequestError(
+                f"Fetching Server Information failed: {response.status} - Reason: {response.reason}"
+            )
+
+        data = await response.read()
+        json_raw = xmltodict.parse(data)
+        json_response = json.loads(json.dumps(json_raw))
+        nvr = json_response["system"]["server"]
+
+        return {
+            SERVER_NAME: nvr["server-name"],
+            "server_version": nvr["version"],
+            SERVER_ID: nvr["uuid"],
+        }
+
+    async def get_unique_id(self) -> None:
+        """Get a Unique ID for this NVR."""
+
+        return await self._get_server_information()[SERVER_ID]
+
+    async def get_server_information(self):
+        """Returns a Server Information for this NVR."""
+        return await self._get_server_information()
 
     async def get_snapshot_image(self, camera_id: str) -> bytes:
         """ Returns a Snapshot image from the specified Camera. """
