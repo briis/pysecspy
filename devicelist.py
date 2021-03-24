@@ -27,8 +27,11 @@ async def devicedata():
         PASSWORD,
     )
 
-    data = await secspy.update(True)
-    print(json.dumps(data, indent=1))
+    image = await secspy.get_snapshot_image("0")
+    
+    # data = await secspy.update(True)
+    # print(json.dumps(data, indent=1))
+
     # await secspy.set_camera_recording("0", "on_motion")
 
     # Close the Session

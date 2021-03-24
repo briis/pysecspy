@@ -138,6 +138,7 @@ class SecSpyServer:
         response = await self.req.get(
             system_uri,
             headers=self.headers,
+            ssl=False,
         )
         if response.status != 200:
             raise RequestError(
@@ -159,6 +160,7 @@ class SecSpyServer:
         response = await self.req.get(
             system_uri,
             headers=self.headers,
+            ssl=False,
         )
         if response.status != 200:
             raise RequestError(
@@ -187,11 +189,13 @@ class SecSpyServer:
 
     async def get_snapshot_image(self, camera_id: str) -> bytes:
         """ Returns a Snapshot image from the specified Camera. """
-        image_uri = f"http://{self._base_url}/image?cameraNum={camera_id}&width=1920&height=1080&quality=75&auth={self._token}"
+        image_uri = f"{self._base_url}/image?cameraNum={camera_id}&width=1920&height=1080&quality=75&auth={self._token}"
+        _LOGGER.debug(image_uri)
 
         response = await self.req.get(
             image_uri,
             headers=self.headers,
+            ssl=False,
         )
         if response.status != 200:
             raise RequestError(
@@ -223,6 +227,7 @@ class SecSpyServer:
         response = await self.req.get(
             cam_uri,
             headers=self.headers,
+            ssl=False,
         )
         if response.status != 200:
             raise RequestError(
