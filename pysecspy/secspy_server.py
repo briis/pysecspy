@@ -305,9 +305,9 @@ class SecSpyServer:
         action_array = msg.split(" ")
         action_key = action_array[3]
         model_key = None
-        if action_array[3] in CAMERA_MESSAGES:
+        if action_key in CAMERA_MESSAGES:
             model_key = "camera"
-        if action_array[3] in EVENT_MESSAGES:
+        if action_key in EVENT_MESSAGES:
             model_key = "event"
 
         if model_key not in ("event", "camera"):
@@ -315,6 +315,35 @@ class SecSpyServer:
 
         action_json = {}
         data_json = {}
+
+        if model_key == "camera":
+            action_json = {
+                "modelKey": "camera",
+                "id": action_array[2],
+            }
+            if action_key == "ARM_C":
+                data_json = {
+                    "recordingSettings": RECORDING_TYPE_CONTINUOUS,
+                }
+            if action_key == "ARM_M":
+                data_json = {
+                    "recordingSettings": RECORDING_TYPE_MOTION,
+                }
+            if action_key in ("DISARM_C", "DISARM_M"):
+                data_json = {
+                    "recordingSettings": RECORDING_TYPE_OFF,
+                }
+            if action_key == "ONLINE":
+                data_json = {
+                    "online": True,
+                }
+            if action_key == "OFFLINE":
+                data_json = {
+                    "online": False,
+                }
+
+            self._process_camera_ws_message(action_json, data_json)
+            return
 
         if model_key == "event":
             if action_key == "FILE":
@@ -373,35 +402,6 @@ class SecSpyServer:
                 }
 
             self._process_event_ws_message(action_json, data_json)
-            return
-
-        if model_key == "camera":
-            action_json = {
-                "modelKey": "camera",
-                "id": action_array[2],
-            }
-            if action_key == "ARM_C":
-                data_json = {
-                    "recording_mode": RECORDING_TYPE_CONTINUOUS,
-                }
-            if action_key == "ARM_M":
-                data_json = {
-                    "recording_mode": RECORDING_TYPE_MOTION,
-                }
-            if action_key in ("DISARM_C", "DISARM_M"):
-                data_json = {
-                    "recording_mode": RECORDING_TYPE_OFF,
-                }
-            if action_key == "ONLINE":
-                data_json = {
-                    "online": True,
-                }
-            if action_key == "OFFLINE":
-                data_json = {
-                    "online": False,
-                }
-
-            self._process_camera_ws_message(action_json, data_json)
             return
 
         raise ValueError(f"Unexpected model key: {model_key}")

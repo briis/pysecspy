@@ -3,6 +3,7 @@ import datetime
 import logging
 import time
 from collections import OrderedDict
+import json
 
 from pysecspy.const import (
     RECORDING_TYPE_CONTINUOUS,
@@ -49,14 +50,17 @@ def process_camera(server_id, server_credential, camera, include_events):
     # Get if camera is online
     online = camera["connected"] == "yes"
     # Get Recording Mode
-    armed_always = camera["mode-c"] == "armed"
-    armed_motion = camera["mode-m"] == "armed"
-    if not armed_always and not armed_motion:
-        recording_mode = RECORDING_TYPE_OFF
-    elif armed_motion:
-        recording_mode = RECORDING_TYPE_MOTION
+    if camera.get("recordingSettings") is not None:
+        recording_mode = camera.get("recordingSettings")
     else:
-        recording_mode = RECORDING_TYPE_CONTINUOUS
+        armed_always = camera["mode-c"] == "armed"
+        armed_motion = camera["mode-m"] == "armed"
+        if not armed_always and not armed_motion:
+            recording_mode = RECORDING_TYPE_OFF
+        elif armed_motion:
+            recording_mode = RECORDING_TYPE_MOTION
+        else:
+            recording_mode = RECORDING_TYPE_CONTINUOUS
     # Live Image
     # stream?cameraNum=X[&codec=X][&width=X][&height=X][&req_fps=X]
     live_stream = f"rtsp://{server_credential['host']}:{server_credential['port']}/stream?cameraNum={camera_id}&codec=h264&auth={server_credential['token']}"
@@ -104,6 +108,7 @@ def camera_update_from_ws_frames(
         _LOGGER.debug("Skipping non-adopted camera: %s", data_json)
         return None, None
 
+    _LOGGER.debug("CAM UPDATE WS FRAME: %s", json.dumps(data_json))
     camera = state_machine.update(camera_id, data_json)
 
     if data_json.keys().isdisjoint(CAMERA_KEYS):
