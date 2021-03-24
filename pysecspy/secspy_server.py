@@ -167,7 +167,6 @@ class SecSpyServer:
     async def set_camera_recording(self, camera_id: str, mode: str) -> bool:
         """Sets the camera recoding mode to what is supplied with 'mode'.
         Valid inputs for mode: off, on_motion, continuous, smartDetect
-        http://192.168.1.195:8000/setSchedule?cameraNum=0&schedule=0&override=0&mode=M&auth=YWRtaW46c2tpdEh0N0tMc2Z5
         """
 
         camera_data = self._processed_data.get(camera_id)
@@ -195,6 +194,7 @@ class SecSpyServer:
                 f"Setting Recording mode failed: {response.status} - Reason: {response.reason}"
             )
 
+        self._processed_data[camera_id]["recording_mode"] = mode
         return True
         
     def _process_cameras_json(self, json_response, server_id, include_events):
