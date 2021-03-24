@@ -12,6 +12,7 @@ from pysecspy.const import (
     CAMERA_MESSAGES,
     DEVICE_UPDATE_INTERVAL_SECONDS,
     EVENT_MESSAGES,
+    RECORDING_MODE_LIST,
     RECORDING_TYPE_CONTINUOUS,
     RECORDING_TYPE_MOTION,
     RECORDING_TYPE_OFF,
@@ -209,7 +210,8 @@ class SecSpyServer:
         """
 
         camera_data = self._processed_data.get(camera_id)
-        cur_rec_mode = camera_data.get("recording_mode")
+        current_rec_mode = camera_data.get("recording_mode")
+        cur_rec_mode = RECORDING_MODE_LIST.get(current_rec_mode)
 
         rec_mode = "M"
         schedule = 1
@@ -380,15 +382,15 @@ class SecSpyServer:
             }
             if action_key == "ARM_C":
                 data_json = {
-                    "recordingSettings": RECORDING_TYPE_CONTINUOUS,
+                    "recording_mode": RECORDING_TYPE_CONTINUOUS,
                 }
             if action_key == "ARM_M":
                 data_json = {
-                    "recordingSettings": RECORDING_TYPE_MOTION,
+                    "recording_mode": RECORDING_TYPE_MOTION,
                 }
             if action_key in ("DISARM_C", "DISARM_M"):
                 data_json = {
-                    "recordingSettings": RECORDING_TYPE_OFF,
+                    "recording_mode": RECORDING_TYPE_OFF,
                 }
             if action_key == "ONLINE":
                 data_json = {

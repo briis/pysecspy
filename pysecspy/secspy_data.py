@@ -15,6 +15,8 @@ _LOGGER = logging.getLogger(__name__)
 CAMERA_KEYS = {
     "state",
     "recordingSettings",
+    "recording_mode",
+    "online",
     "lastMotion",
     "isMotionDetected",
 }
