@@ -197,7 +197,7 @@ class SecSpyServer:
             raise RequestError(
                 f"Fetching Snapshot Image failed: {response.status} - Reason: {response.reason}"
             )
-        return await response.read()
+        return response
 
     async def set_camera_recording(self, camera_id: str, mode: str) -> bool:
         """Sets the camera recoding mode to what is supplied with 'mode'.
