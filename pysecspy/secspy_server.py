@@ -1,8 +1,8 @@
 """Module to communicate with the SecuritySpy API."""
 import asyncio
+import json
 import logging
 import time
-import json
 from base64 import b64encode
 
 import aiohttp
@@ -86,7 +86,6 @@ class SecSpyServer:
         """Updates the status of devices."""
 
         current_time = time.time()
-        device_update = False
         if (
             not self.ws_connection
             and force_camera_update
@@ -94,7 +93,6 @@ class SecSpyServer:
             > self._last_device_update_time
         ):
             _LOGGER.debug("Doing device update")
-            device_update = True
             await self._get_device_list(not self.ws_connection)
             self._last_device_update_time = current_time
         else:
@@ -105,11 +103,9 @@ class SecSpyServer:
             self._last_websocket_check = current_time
             await self.async_connect_ws()
 
-        # If the websocket is connected/connecting
-        # we do not need to get events
         if self.ws_connection or self._last_websocket_check == current_time:
             _LOGGER.debug("Skipping update since websocket is active.")
-            return self._processed_data # if device_update else {}
+            return self._processed_data
 
     async def async_connect_ws(self):
         """Connect the websocket."""
@@ -238,7 +234,7 @@ class SecSpyServer:
 
         self._processed_data[camera_id]["recording_mode"] = mode
         return True
-        
+
     def _process_cameras_json(self, json_response, server_id, include_events):
         for camera in json_response["system"]["cameralist"]["camera"]:
             camera_id = camera["number"]

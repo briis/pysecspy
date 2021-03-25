@@ -1,9 +1,9 @@
 """SecuritySpy Data."""
 import datetime
+import json
 import logging
 import time
 from collections import OrderedDict
-import json
 
 from pysecspy.const import (
     RECORDING_TYPE_CONTINUOUS,
@@ -224,7 +224,9 @@ def process_event(event):
             (float(end) / 1000) - (float(start) / 1000), EVENT_LENGTH_PRECISION
         )
 
-    event_object = "None" if event_reason not in REASON_CODES else REASON_CODES.get(event_reason)
+    event_object = (
+        "None" if event_reason not in REASON_CODES else REASON_CODES.get(event_reason)
+    )
 
     processed_event = {
         "event_on": False,
