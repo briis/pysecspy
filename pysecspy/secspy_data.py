@@ -18,6 +18,7 @@ CAMERA_KEYS = {
     "recordingSettings",
     "recording_mode",
     "online",
+    "reason",
     "lastMotion",
     "isMotionDetected",
 }
@@ -62,7 +63,6 @@ def process_camera(server_id, server_credential, camera, include_events):
         else:
             recording_mode = RECORDING_TYPE_CONTINUOUS
     # Live Image
-    # stream?cameraNum=X[&codec=X][&width=X][&height=X][&req_fps=X]
     base_stream = f"rtsp://{server_credential['host']}:{server_credential['port']}/stream?auth={server_credential['token']}"
     live_stream = f"{base_stream}&cameraNum={camera_id}&codec=h264&width=1920&height=1080&req_fps=25"
 
@@ -224,12 +224,14 @@ def process_event(event):
             (float(end) / 1000) - (float(start) / 1000), EVENT_LENGTH_PRECISION
         )
 
+    event_object = "None" if event_reason not in REASON_CODES else REASON_CODES.get(event_reason)
+
     processed_event = {
         "event_on": False,
         "event_type": event_type,
         "event_start": start_time,
         "event_length": event_length,
-        "event_object": REASON_CODES.get(event_reason),
+        "event_object": event_object,
     }
 
     if event_type in (EVENT_MOTION, EVENT_SMART_DETECT_ZONE):

@@ -346,6 +346,21 @@ class SecSpyServer:
             return
 
         if model_key == "event":
+
+            if action_key == "TRIGGER_M":
+                data_json = {
+                    "type": "motion",
+                    "start": action_array[0],
+                    "camera": action_array[2],
+                    "reason": action_array[4],
+                    "isMotionDetected": True,
+                }
+                action_json = {
+                    "modelKey": "event",
+                    "action": "add",
+                    "id": action_array[2],
+                }
+
             if action_key == "FILE":
                 data_json = {
                     "type": "motion",
@@ -360,6 +375,7 @@ class SecSpyServer:
                     "id": action_array[2],
                 }
 
+            # Not used currently
             if action_key == "CLASSIFY":
                 action_json = {
                     "modelKey": "event",
@@ -386,20 +402,6 @@ class SecSpyServer:
                         "HUMAN": human_score,
                         "VEHICLE": vehicle_score,
                     }
-
-            if action_key == "TRIGGER_M":
-                data_json = {
-                    "type": "motion",
-                    "start": action_array[0],
-                    "camera": action_array[2],
-                    "reason": action_array[4],
-                    "isMotionDetected": True,
-                }
-                action_json = {
-                    "modelKey": "event",
-                    "action": "add",
-                    "id": action_array[2],
-                }
 
             self._process_event_ws_message(action_json, data_json)
             return
