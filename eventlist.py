@@ -7,9 +7,9 @@ import json
 
 _LOGGER = logging.getLogger(__name__)
 
-USERNAME = "admin"
-PASSWORD = "skitHt7KLsfy"
-IPADDRESS = "192.168.1.195"
+USERNAME = "YOUR_USERNAME"
+PASSWORD = "YOUR_PASSWORD"
+IPADDRESS = "YOUR_IP_ADDRESS"
 PORT = 8000
 
 async def devicedata():
