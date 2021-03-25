@@ -3,7 +3,7 @@ from distutils.core import setup
 setup(
     name="pysecspy",
     packages=["pysecspy"],
-    version="0.0.9",
+    version="1.0.0",
     license="MIT",
     description="Python Wrapper for SecuritySpy API",
     author="Bjarne Riis",
@@ -16,7 +16,7 @@ setup(
         "xmltodict",
     ],
     classifiers=[
-        "Development Status :: 4 - Beta",  # Chose either "3 - Alpha", "4 - Beta" or "5 - Production/Stable" as the current state of your package
+        "Development Status :: 5 - Production/Stable",  # Chose either "3 - Alpha", "4 - Beta" or "5 - Production/Stable" as the current state of your package
         "Intended Audience :: Developers",
         "Topic :: Software Development :: Build Tools",
         "License :: OSI Approved :: MIT License",
