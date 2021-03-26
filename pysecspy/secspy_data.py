@@ -68,16 +68,20 @@ def process_camera(server_id, server_credential, camera, include_events):
     live_stream = f"{base_stream}&cameraNum={camera_id}"
 
     # Other Settings
-    ip_address = camera.get("address")
+    ip_address = "Local" if camera["devicetype"] == "Local" else camera.get("address")
 
     camera_update = {
         "name": str(camera["name"]),
-        "type": camera["devicetype"],
+        "type": "camera",
         "model": str(camera["devicename"]),
         "online": online,
         "recording_mode": recording_mode,
         "ip_address": ip_address,
         "live_stream": live_stream,
+        "width": str(camera["width"]),
+        "height": str(camera["height"]),
+        "fps": str(camera["current-fps"]),
+        "video_format": str(camera["video-format"]),
     }
 
     if server_id is not None:
@@ -86,13 +90,9 @@ def process_camera(server_id, server_credential, camera, include_events):
         # Get the last time motion occured
         if camera.get("timesincelastmotion") is not None:
             last_update = int(time.time()) + int(camera["timesincelastmotion"])
-            camera_update["last_motion"] = (
-                None
-                if camera["timesincelastmotion"] is None
-                else datetime.datetime.fromtimestamp(last_update / 1000).strftime(
-                    "%Y-%m-%d %H:%M:%S"
-                )
-            )
+            camera_update["last_motion"] = datetime.datetime.fromtimestamp(last_update / 1000).strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            camera_update["last_motion"] = None
 
     return camera_update
 

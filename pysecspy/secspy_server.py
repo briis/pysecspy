@@ -98,7 +98,7 @@ class SecSpyServer:
         else:
             _LOGGER.debug("Skipping device update")
 
-        if current_time - WEBSOCKET_CHECK_INTERVAL_SECONDS > self._last_websocket_check:
+        if (current_time - WEBSOCKET_CHECK_INTERVAL_SECONDS) > self._last_websocket_check:
             _LOGGER.debug("Checking websocket")
             self._last_websocket_check = current_time
             await self.async_connect_ws()
@@ -173,6 +173,7 @@ class SecSpyServer:
             SERVER_NAME: nvr["server-name"],
             "server_version": nvr["version"],
             SERVER_ID: nvr["uuid"],
+            "server_ip_address": nvr["ip1"],
         }
 
     async def get_unique_id(self) -> None:
@@ -268,17 +269,33 @@ class SecSpyServer:
             self.ws_session = aiohttp.ClientSession()
         _LOGGER.debug("WS connecting to: %s", url)
 
-        async with self.ws_session.request("get", url) as self.ws_connection:
+        self.ws_connection = await self.ws_session.request("get", url)
+        try:
             async for msg in self.ws_connection.content:
                 data = msg.decode("UTF-8").strip()
-                try:
-                    if data[:14].isnumeric():
+                if data[:14].isnumeric():
+                    try:
                         self._process_ws_message(data)
-                except Exception as err:
-                    _LOGGER.exception(
-                        "Error processing websocket message. Error: %s", err
-                    )
-                    return
+                    except Exception as err:
+                        _LOGGER.exception(
+                            "Error processing websocket message. Error: %s", err
+                        )
+                        return
+        finally:
+            _LOGGER.debug("websocket disconnected")
+            self.ws_connection = None
+
+        # async with self.ws_session.request("get", url) as self.ws_connection:
+        #     async for msg in self.ws_connection.content:
+        #         data = msg.decode("UTF-8").strip()
+        #         try:
+        #             if data[:14].isnumeric():
+        #                 self._process_ws_message(data)
+        #         except Exception as err:
+        #             _LOGGER.exception(
+        #                 "Error processing websocket message. Error: %s", err
+        #             )
+        #             return
 
     def subscribe_websocket(self, ws_callback):
         """Subscribe to websocket events.
