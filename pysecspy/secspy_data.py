@@ -64,7 +64,8 @@ def process_camera(server_id, server_credential, camera, include_events):
             recording_mode = RECORDING_TYPE_CONTINUOUS
     # Live Image
     base_stream = f"rtsp://{server_credential['host']}:{server_credential['port']}/stream?auth={server_credential['token']}"
-    live_stream = f"{base_stream}&cameraNum={camera_id}&codec=h264&width=1920&height=1080&req_fps=25"
+    # live_stream = f"{base_stream}&cameraNum={camera_id}&codec=h264&width=1920&height=1080&req_fps=25"
+    live_stream = f"{base_stream}&cameraNum={camera_id}"
 
     # Other Settings
     ip_address = camera.get("address")
@@ -83,14 +84,15 @@ def process_camera(server_id, server_credential, camera, include_events):
         camera_update["server_id"] = server_id
     if include_events:
         # Get the last time motion occured
-        last_update = int(time.time()) + int(camera["timesincelastmotion"])
-        camera_update["last_motion"] = (
-            None
-            if camera["timesincelastmotion"] is None
-            else datetime.datetime.fromtimestamp(last_update / 1000).strftime(
-                "%Y-%m-%d %H:%M:%S"
+        if camera.get("timesincelastmotion") is not None:
+            last_update = int(time.time()) + int(camera["timesincelastmotion"])
+            camera_update["last_motion"] = (
+                None
+                if camera["timesincelastmotion"] is None
+                else datetime.datetime.fromtimestamp(last_update / 1000).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
             )
-        )
 
     return camera_update
 
