@@ -273,47 +273,50 @@ class SecSpyServer:
     async def _setup_streamreader(self):
         """Setup the Event Websocket."""
         url = f"{self._base_url}/eventStream?version=3&format=multipart&auth={self._token}"
+        timeout = aiohttp.ClientTimeout(total=None, connect=None, sock_connect=None, sock_read=None)
         if not self.ws_session:
-            self.ws_session = aiohttp.ClientSession()
+            self.ws_session = aiohttp.ClientSession(timeout=timeout)
         _LOGGER.debug("Receiving from: %s", url)
 
-        # self.ws_connection = await self.ws_session.request("get", url)
-        # try:
-        #     async for msg in self.ws_connection.content:
-        #         if self.ws_connection.closed:
-        #             break
-        #         data = msg.decode("UTF-8").strip()
-        #         if data[:14].isnumeric():
-        #             try:
-        #                 self._process_ws_message(data)
-        #             except Exception as err:
-        #                 _LOGGER.exception(
-        #                     "Error processing stream message. Error: %s", err
-        #                 )
-        #                 return
-        #         await asyncio.sleep(0)
-        # finally:
-        #     _LOGGER.debug("stream disconnected")
-        #     self.ws_connection = None
-
+        self.ws_connection = await self.ws_session.request("get", url)
         try:
-            async with self.ws_session.request("get", url) as self.ws_connection:
-                try:
-                    async for msg in self.ws_connection.content:
-                        data = msg.decode("UTF-8").strip()
-                        try:
-                            if data[:14].isnumeric():
-                                self._process_ws_message(data)
-                        except Exception as err:
-                            _LOGGER.exception(
-                                "Error processing stream message. Error: %s", err
-                            )
-                            return
-                except client_exceptions.ClientConnectionError as e:
-                    return
+            async for msg in self.ws_connection.content:
+                if self.ws_connection.closed:
+                    break
+                data = msg.decode("UTF-8").strip()
+                if data[:14].isnumeric():
+                    try:
+                        self._process_ws_message(data)
+                    except Exception as err:
+                        _LOGGER.exception(
+                            "Error processing stream message. Error: %s", err
+                        )
+                        return
+                await asyncio.sleep(0)
+        except client_exceptions.ClientConnectionError as e:
+            return
         finally:
             _LOGGER.debug("stream disconnected")
             self.ws_connection = None
+
+        # try:
+        #     async with self.ws_session.request("get", url) as self.ws_connection:
+        #         try:
+        #             async for msg in self.ws_connection.content:
+        #                 data = msg.decode("UTF-8").strip()
+        #                 try:
+        #                     if data[:14].isnumeric():
+        #                         self._process_ws_message(data)
+        #                 except Exception as err:
+        #                     _LOGGER.exception(
+        #                         "Error processing stream message. Error: %s", err
+        #                     )
+        #                     return
+        #         except client_exceptions.ClientConnectionError as e:
+        #             return
+        # finally:
+        #     _LOGGER.debug("stream disconnected")
+        #     self.ws_connection = None
 
     def subscribe_websocket(self, ws_callback):
         """Subscribe to websocket events.
