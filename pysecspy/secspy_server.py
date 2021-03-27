@@ -90,8 +90,11 @@ class SecSpyServer:
         current_time = time.time()
         device_update = False
         if (
-            not self.ws_connection
-            and force_camera_update
+            # not self.ws_connection
+            # and force_camera_update
+            # or (current_time - DEVICE_UPDATE_INTERVAL_SECONDS)
+            # > self._last_device_update_time
+            force_camera_update
             or (current_time - DEVICE_UPDATE_INTERVAL_SECONDS)
             > self._last_device_update_time
         ):
