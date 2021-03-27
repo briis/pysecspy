@@ -1,6 +1,7 @@
 """Module to communicate with the SecuritySpy API."""
+from aiohttp import client_exceptions
 import asyncio
-import json
+import json as pjson
 import logging
 import time
 from base64 import b64encode
@@ -76,6 +77,7 @@ class SecSpyServer:
         self.ws_task = None
         self._ws_subscriptions = []
         self._is_first_update = True
+        self._signal_stop = False
 
     @property
     def devices(self):
@@ -86,6 +88,7 @@ class SecSpyServer:
         """Updates the status of devices."""
 
         current_time = time.time()
+        device_update = False
         if (
             not self.ws_connection
             and force_camera_update
@@ -93,6 +96,7 @@ class SecSpyServer:
             > self._last_device_update_time
         ):
             _LOGGER.debug("Doing device update")
+            device_update = True
             await self._get_device_list(not self.ws_connection)
             self._last_device_update_time = current_time
         else:
@@ -105,7 +109,7 @@ class SecSpyServer:
 
         if self.ws_connection or self._last_websocket_check == current_time:
             _LOGGER.debug("Skipping update since websocket is active.")
-            return self._processed_data
+            return self._processed_data if device_update else {}
 
     async def async_connect_ws(self):
         """Connect the websocket."""
@@ -118,15 +122,16 @@ class SecSpyServer:
                 self.ws_connection = None
             except Exception:
                 _LOGGER.exception("Could not cancel ws_task")
-        self.ws_task = asyncio.ensure_future(self._setup_websocket())
+        self.ws_task = asyncio.ensure_future(self._setup_streamreader())
 
     async def async_disconnect_ws(self):
         """Disconnect the websocket."""
         if self.ws_connection is None:
             return
 
-        await self.ws_connection.close()
+        await self.ws_connection.wait_for_close()
         await self.ws_session.close()
+
 
     async def _get_device_list(self, include_events) -> None:
         """Get a list of devices connected to the NVR."""
@@ -143,7 +148,7 @@ class SecSpyServer:
             )
         data = await response.read()
         json_raw = xmltodict.parse(data)
-        json_response = json.loads(json.dumps(json_raw))
+        json_response = pjson.loads(pjson.dumps(json_raw))
         server_id = json_response["system"]["server"]["uuid"]
 
         self._process_cameras_json(json_response, server_id, include_events)
@@ -166,7 +171,7 @@ class SecSpyServer:
 
         data = await response.read()
         json_raw = xmltodict.parse(data)
-        json_response = json.loads(json.dumps(json_raw))
+        json_response = pjson.loads(pjson.dumps(json_raw))
         nvr = json_response["system"]["server"]
 
         return {
@@ -262,40 +267,50 @@ class SecSpyServer:
         for device_id in self._processed_data:
             self._update_device(device_id, PROCESSED_EVENT_EMPTY)
 
-    async def _setup_websocket(self):
+    async def _setup_streamreader(self):
         """Setup the Event Websocket."""
         url = f"{self._base_url}/eventStream?version=3&format=multipart&auth={self._token}"
         if not self.ws_session:
             self.ws_session = aiohttp.ClientSession()
-        _LOGGER.debug("WS connecting to: %s", url)
+        _LOGGER.debug("Receiving from: %s", url)
 
-        self.ws_connection = await self.ws_session.request("get", url)
-        try:
-            async for msg in self.ws_connection.content:
-                data = msg.decode("UTF-8").strip()
-                if data[:14].isnumeric():
-                    try:
-                        self._process_ws_message(data)
-                    except Exception as err:
-                        _LOGGER.exception(
-                            "Error processing websocket message. Error: %s", err
-                        )
-                        return
-        finally:
-            _LOGGER.debug("websocket disconnected")
-            self.ws_connection = None
-
-        # async with self.ws_session.request("get", url) as self.ws_connection:
+        # self.ws_connection = await self.ws_session.request("get", url)
+        # try:
         #     async for msg in self.ws_connection.content:
+        #         if self.ws_connection.closed:
+        #             break
         #         data = msg.decode("UTF-8").strip()
-        #         try:
-        #             if data[:14].isnumeric():
+        #         if data[:14].isnumeric():
+        #             try:
         #                 self._process_ws_message(data)
-        #         except Exception as err:
-        #             _LOGGER.exception(
-        #                 "Error processing websocket message. Error: %s", err
-        #             )
-        #             return
+        #             except Exception as err:
+        #                 _LOGGER.exception(
+        #                     "Error processing stream message. Error: %s", err
+        #                 )
+        #                 return
+        #         await asyncio.sleep(0)
+        # finally:
+        #     _LOGGER.debug("stream disconnected")
+        #     self.ws_connection = None
+
+        try:
+            async with self.ws_session.request("get", url) as self.ws_connection:
+                try:
+                    async for msg in self.ws_connection.content:
+                        data = msg.decode("UTF-8").strip()
+                        try:
+                            if data[:14].isnumeric():
+                                self._process_ws_message(data)
+                        except Exception as err:
+                            _LOGGER.exception(
+                                "Error processing stream message. Error: %s", err
+                            )
+                            return
+                except client_exceptions.ClientConnectionError as e:
+                    return
+        finally:
+            _LOGGER.debug("stream disconnected")
+            self.ws_connection = None
 
     def subscribe_websocket(self, ws_callback):
         """Subscribe to websocket events.
