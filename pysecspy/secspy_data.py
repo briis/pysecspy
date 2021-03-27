@@ -15,8 +15,12 @@ _LOGGER = logging.getLogger(__name__)
 
 CAMERA_KEYS = {
     "state",
-    "recordingSettings",
-    "recording_mode",
+    "recordingSettings_A",
+    "recordingSettings_C",
+    "recordingSettings_M",
+    "recording_mode_a",
+    "recording_mode_c",
+    "recording_mode_m",
     "online",
     "reason",
     "lastMotion",
@@ -51,17 +55,18 @@ def process_camera(server_id, server_credential, camera, include_events):
     # Get if camera is online
     online = camera["connected"] == "yes"
     # Get Recording Mode
-    if camera.get("recordingSettings") is not None:
-        recording_mode = camera.get("recordingSettings")
+    if camera.get("recordingSettings_a") is not None:
+        recording_mode_a = not camera.get("recordingSettings_A")
     else:
-        armed_always = camera["mode-c"] == "armed"
-        armed_motion = camera["mode-m"] == "armed"
-        if not armed_always and not armed_motion:
-            recording_mode = RECORDING_TYPE_OFF
-        elif armed_motion:
-            recording_mode = RECORDING_TYPE_MOTION
-        else:
-            recording_mode = RECORDING_TYPE_CONTINUOUS
+        recording_mode_a = camera["mode-a"] == "armed"
+    if camera.get("recordingSettings_C") is not None:
+        recording_mode_c = camera.get("recordingSettings_C")
+    else:
+        recording_mode_c = camera["mode-c"] == "armed"
+    if camera.get("recordingSettings_M") is not None:
+        recording_mode_m = camera.get("recordingSettings_M")
+    else:
+        recording_mode_m = camera["mode-m"] == "armed"
     # Live Image
     base_stream = f"rtsp://{server_credential['host']}:{server_credential['port']}/stream?auth={server_credential['token']}"
     # live_stream = f"{base_stream}&cameraNum={camera_id}&codec=h264&width=1920&height=1080&req_fps=25"
@@ -75,7 +80,9 @@ def process_camera(server_id, server_credential, camera, include_events):
         "type": "camera",
         "model": str(camera["devicename"]),
         "online": online,
-        "recording_mode": recording_mode,
+        "recording_mode_a": recording_mode_a,
+        "recording_mode_c": recording_mode_c,
+        "recording_mode_m": recording_mode_m,
         "ip_address": ip_address,
         "live_stream": live_stream,
         "width": str(camera["width"]),

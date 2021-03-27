@@ -14,6 +14,7 @@ from pysecspy.const import (
     DEVICE_UPDATE_INTERVAL_SECONDS,
     EVENT_MESSAGES,
     RECORDING_MODE_LIST,
+    RECORDING_TYPE_ACTION,
     RECORDING_TYPE_CONTINUOUS,
     RECORDING_TYPE_MOTION,
     RECORDING_TYPE_OFF,
@@ -209,25 +210,21 @@ class SecSpyServer:
             )
         return await response.read()
 
-    async def set_camera_recording(self, camera_id: str, mode: str) -> bool:
-        """Sets the camera recoding mode to what is supplied with 'mode'.
-        Valid inputs for mode: off, on_motion, continuous, smartDetect
+    async def set_camera_recording(self, camera_id: str, mode: str, value: bool) -> bool:
+        """Sets the camera recoding mode .
+        Valid inputs for mode: off, on_motion, continuous. Valid input for value is True or False
         """
 
-        camera_data = self._processed_data.get(camera_id)
-        current_rec_mode = camera_data.get("recording_mode")
-        cur_rec_mode = RECORDING_MODE_LIST.get(current_rec_mode)
+        schedule = 1 if value else 0
 
-        rec_mode = "M"
-        schedule = 1
+        if mode in RECORDING_TYPE_ACTION:
+            rec_mode = "A"
 
-        if mode in RECORDING_TYPE_OFF:
-            rec_mode = cur_rec_mode
-            schedule = 0
+        if mode in RECORDING_TYPE_MOTION:
+            rec_mode = "M"
 
         if mode in RECORDING_TYPE_CONTINUOUS:
             rec_mode = "C"
-            schedule = 1
 
         cam_uri = f"{self._base_url}/setSchedule?cameraNum={camera_id}&schedule={schedule}&override=0&mode={rec_mode}&auth={self._token}"
 
@@ -355,17 +352,29 @@ class SecSpyServer:
                 "modelKey": "camera",
                 "id": action_array[2],
             }
+            if action_key == "ARM_A":
+                data_json = {
+                    "recordingSettings_A": True,
+                }
             if action_key == "ARM_C":
                 data_json = {
-                    "recordingSettings": RECORDING_TYPE_CONTINUOUS,
+                    "recordingSettings_C": True,
                 }
             if action_key == "ARM_M":
                 data_json = {
-                    "recordingSettings": RECORDING_TYPE_MOTION,
+                    "recordingSettings_M": True,
                 }
-            if action_key in ("DISARM_C", "DISARM_M"):
+            if action_key == "DISARM_A":
                 data_json = {
-                    "recordingSettings": RECORDING_TYPE_OFF,
+                    "recordingSettings_A": False,
+                }
+            if action_key == "DISARM_C":
+                data_json = {
+                    "recordingSettings_C": False,
+                }
+            if action_key == "DISARM_M":
+                data_json = {
+                    "recordingSettings_M": False,
                 }
             if action_key == "ONLINE":
                 data_json = {
@@ -455,7 +464,7 @@ class SecSpyServer:
             return
         _LOGGER.debug("Processed camera: %s", processed_camera)
 
-        if processed_camera["recording_mode"] == RECORDING_TYPE_OFF:
+        if not processed_camera["recording_mode_m"] or not processed_camera["recording_mode_c"]:
             processed_event = camera_event_from_ws_frames(
                 self._device_state_machine, action_json, data_json
             )

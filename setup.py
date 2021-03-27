@@ -3,7 +3,7 @@ from distutils.core import setup
 setup(
     name="pysecspy",
     packages=["pysecspy"],
-    version="1.0.9",
+    version="1.0.11",
     license="MIT",
     description="Python Wrapper for SecuritySpy API",
     author="Bjarne Riis",
