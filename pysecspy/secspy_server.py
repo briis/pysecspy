@@ -172,12 +172,17 @@ class SecSpyServer:
         json_raw = xmltodict.parse(data)
         json_response = pjson.loads(pjson.dumps(json_raw))
         nvr = json_response["system"]["server"]
+        sched_preset = json_response["system"]["schedulepresetlist"]
+        presets = []
+        for preset in sched_preset["schedulepreset"]:
+            presets.append(preset)
 
         return {
             SERVER_NAME: nvr["server-name"],
             "server_version": nvr["version"],
             SERVER_ID: nvr["uuid"],
             "server_ip_address": nvr["ip1"],
+            "schedule_presets": presets,
         }
 
     async def get_unique_id(self) -> None:
@@ -205,23 +210,26 @@ class SecSpyServer:
             )
         return await response.read()
 
-    async def set_camera_recording(
-        self, camera_id: str, mode: str, value: bool
+    async def set_arm_mode(
+        self, camera_id: str, mode: str, enabled: bool
     ) -> bool:
-        """Sets the camera recoding mode .
-        Valid inputs for mode: off, on_motion, continuous. Valid input for value is True or False
+        """Sets the camera arming mode .
+        Valid inputs for mode: action, on_motion, continuous. Valid input for value is True or False
         """
 
-        schedule = 1 if value else 0
+        schedule = 1 if enabled else 0
 
         if mode in RECORDING_TYPE_ACTION:
             rec_mode = "A"
+            json_id = "recording_mode_a"
 
         if mode in RECORDING_TYPE_MOTION:
             rec_mode = "M"
+            json_id = "recording_mode_m"
 
         if mode in RECORDING_TYPE_CONTINUOUS:
             rec_mode = "C"
+            json_id = "recording_mode_c"
 
         cam_uri = f"{self._base_url}/setSchedule?cameraNum={camera_id}&schedule={schedule}&override=0&mode={rec_mode}&auth={self._token}"
 
@@ -232,10 +240,32 @@ class SecSpyServer:
         )
         if response.status != 200:
             raise RequestError(
-                f"Setting Recording mode failed: {response.status} - Reason: {response.reason}"
+                f"Setting Arming mode failed: {response.status} - Reason: {response.reason}"
             )
 
-        self._processed_data[camera_id]["recording_mode"] = mode
+        self._processed_data[camera_id][json_id] = enabled
+        return True
+
+    async def enable_schedule_preset(
+        self, schedule_id: str
+    ) -> bool:
+        """Enables a schedule preset.
+        Valid inputs for schedule_id is a valid preset id
+        Format: setPreset?id=X
+        """
+
+        cam_uri = f"{self._base_url}/setPreset?id={schedule_id}&auth={self._token}"
+
+        response = await self.req.get(
+            cam_uri,
+            headers=self.headers,
+            ssl=False,
+        )
+        if response.status != 200:
+            raise RequestError(
+                f"Setting Schedule Preset failed: {response.status} - Reason: {response.reason}"
+            )
+
         return True
 
     def _process_cameras_json(self, json_response, server_id, include_events):
