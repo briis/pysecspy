@@ -1,5 +1,4 @@
 """Module to communicate with the SecuritySpy API."""
-from aiohttp import client_exceptions
 import asyncio
 import json as pjson
 import logging
@@ -8,16 +7,15 @@ from base64 import b64encode
 
 import aiohttp
 import xmltodict
+from aiohttp import client_exceptions
 
 from pysecspy.const import (
     CAMERA_MESSAGES,
     DEVICE_UPDATE_INTERVAL_SECONDS,
     EVENT_MESSAGES,
-    RECORDING_MODE_LIST,
     RECORDING_TYPE_ACTION,
     RECORDING_TYPE_CONTINUOUS,
     RECORDING_TYPE_MOTION,
-    RECORDING_TYPE_OFF,
     SERVER_ID,
     SERVER_NAME,
     WEBSOCKET_CHECK_INTERVAL_SECONDS,
@@ -91,10 +89,6 @@ class SecSpyServer:
         current_time = time.time()
         device_update = False
         if (
-            # not self.ws_connection
-            # and force_camera_update
-            # or (current_time - DEVICE_UPDATE_INTERVAL_SECONDS)
-            # > self._last_device_update_time
             force_camera_update
             or (current_time - DEVICE_UPDATE_INTERVAL_SECONDS)
             > self._last_device_update_time
@@ -106,7 +100,9 @@ class SecSpyServer:
         else:
             _LOGGER.debug("Skipping device update")
 
-        if (current_time - WEBSOCKET_CHECK_INTERVAL_SECONDS) > self._last_websocket_check:
+        if (
+            current_time - WEBSOCKET_CHECK_INTERVAL_SECONDS
+        ) > self._last_websocket_check:
             _LOGGER.debug("Checking websocket")
             self._last_websocket_check = current_time
             await self.async_connect_ws()
@@ -135,7 +131,6 @@ class SecSpyServer:
 
         await self.ws_connection.wait_for_close()
         await self.ws_session.close()
-
 
     async def _get_device_list(self, include_events) -> None:
         """Get a list of devices connected to the NVR."""
@@ -210,7 +205,9 @@ class SecSpyServer:
             )
         return await response.read()
 
-    async def set_camera_recording(self, camera_id: str, mode: str, value: bool) -> bool:
+    async def set_camera_recording(
+        self, camera_id: str, mode: str, value: bool
+    ) -> bool:
         """Sets the camera recoding mode .
         Valid inputs for mode: off, on_motion, continuous. Valid input for value is True or False
         """
@@ -270,7 +267,9 @@ class SecSpyServer:
     async def _setup_streamreader(self):
         """Setup the Event Websocket."""
         url = f"{self._base_url}/eventStream?version=3&format=multipart&auth={self._token}"
-        timeout = aiohttp.ClientTimeout(total=None, connect=None, sock_connect=None, sock_read=None)
+        timeout = aiohttp.ClientTimeout(
+            total=None, connect=None, sock_connect=None, sock_read=None
+        )
         if not self.ws_session:
             self.ws_session = aiohttp.ClientSession(timeout=timeout)
         _LOGGER.debug("Receiving from: %s", url)
@@ -290,30 +289,11 @@ class SecSpyServer:
                         )
                         return
                 await asyncio.sleep(0)
-        except client_exceptions.ClientConnectionError as e:
+        except client_exceptions.ClientConnectionError:
             return
         finally:
             _LOGGER.debug("stream disconnected")
             self.ws_connection = None
-
-        # try:
-        #     async with self.ws_session.request("get", url) as self.ws_connection:
-        #         try:
-        #             async for msg in self.ws_connection.content:
-        #                 data = msg.decode("UTF-8").strip()
-        #                 try:
-        #                     if data[:14].isnumeric():
-        #                         self._process_ws_message(data)
-        #                 except Exception as err:
-        #                     _LOGGER.exception(
-        #                         "Error processing stream message. Error: %s", err
-        #                     )
-        #                     return
-        #         except client_exceptions.ClientConnectionError as e:
-        #             return
-        # finally:
-        #     _LOGGER.debug("stream disconnected")
-        #     self.ws_connection = None
 
     def subscribe_websocket(self, ws_callback):
         """Subscribe to websocket events.
@@ -464,7 +444,10 @@ class SecSpyServer:
             return
         _LOGGER.debug("Processed camera: %s", processed_camera)
 
-        if not processed_camera["recording_mode_m"] or not processed_camera["recording_mode_c"]:
+        if (
+            not processed_camera["recording_mode_m"]
+            or not processed_camera["recording_mode_c"]
+        ):
             processed_event = camera_event_from_ws_frames(
                 self._device_state_machine, action_json, data_json
             )

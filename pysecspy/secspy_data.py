@@ -5,12 +5,6 @@ import logging
 import time
 from collections import OrderedDict
 
-from pysecspy.const import (
-    RECORDING_TYPE_CONTINUOUS,
-    RECORDING_TYPE_MOTION,
-    RECORDING_TYPE_OFF,
-)
-
 _LOGGER = logging.getLogger(__name__)
 
 CAMERA_KEYS = {
@@ -97,7 +91,9 @@ def process_camera(server_id, server_credential, camera, include_events):
         # Get the last time motion occured
         if camera.get("timesincelastmotion") is not None:
             last_update = int(time.time()) + int(camera["timesincelastmotion"])
-            camera_update["last_motion"] = datetime.datetime.fromtimestamp(last_update / 1000).strftime("%Y-%m-%d %H:%M:%S")
+            camera_update["last_motion"] = datetime.datetime.fromtimestamp(
+                last_update / 1000
+            ).strftime("%Y-%m-%d %H:%M:%S")
         else:
             camera_update["last_motion"] = None
 
