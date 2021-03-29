@@ -129,3 +129,8 @@ dmypy.json
 .pyre/
 .DS_Store
 test.py
+local_functions.py
+test_stream.py
+local_events.py
+latest_recording.xml
+local_test.py

@@ -210,6 +210,39 @@ class SecSpyServer:
             )
         return await response.read()
 
+    async def get_latest_motion_recording(self, camera_id: str) -> bytes:
+        """ Returns the latest motion recording file. """
+
+        # Get the latest file name
+        file_uri = f"{self._base_url}/download?cameraNum={camera_id}&mcFilesCheck=1&ageText=1&results=1&format=xml&auth={self._token}"
+        response = await self.req.get(
+            file_uri,
+            headers=self.headers,
+            ssl=False,
+        )
+        if response.status != 200:
+            raise RequestError(
+                f"Fetching Recording files failed: {response.status} - Reason: {response.reason}"
+            )
+        json_raw = xmltodict.parse(await response.read())
+        json_response = pjson.loads(pjson.dumps(json_raw))
+        download_url = json_response["feed"]["entry"]["link"]["@href"]
+
+        # Retrieve the file
+        video_uri = f"{self._base_url}/{download_url}?auth={self._token}"
+        _LOGGER.debug("VIDEO URI: %s", video_uri)
+
+        response = await self.req.get(
+            video_uri,
+            headers=self.headers,
+            ssl=False,
+        )
+        if response.status != 200:
+            raise RequestError(
+                f"Fetching Video Recording failed: {response.status} - Reason: {response.reason}"
+            )
+        return await response.read()
+
     async def set_arm_mode(
         self, camera_id: str, mode: str, enabled: bool
     ) -> bool:
@@ -419,7 +452,6 @@ class SecSpyServer:
                     "type": "motion",
                     "end": action_array[0],
                     "camera": action_array[2],
-                    "file_name": action_array[4],
                     "isMotionDetected": False,
                 }
                 action_json = {

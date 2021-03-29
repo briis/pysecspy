@@ -62,10 +62,13 @@ def process_camera(server_id, server_credential, camera, include_events):
     else:
         recording_mode_m = camera["mode-m"] == "armed"
     # Live Image
-    base_stream = f"rtsp://{server_credential['host']}:{server_credential['port']}/stream?auth={server_credential['token']}"
-    # live_stream = f"{base_stream}&cameraNum={camera_id}&codec=h264&width=1920&height=1080&req_fps=25"
-    live_stream = f"{base_stream}&cameraNum={camera_id}"
-
+    base_url = f"{server_credential['host']}:{server_credential['port']}"
+    base_stream = f"rtsp://{base_url}/stream?auth={server_credential['token']}"
+    live_stream = f"{base_stream}&cameraNum={camera_id}&codec=h264"
+    # Jpeg Image
+    image_width = str(camera["width"])
+    image_height = str(camera["height"])
+    latest_image = f"http://{base_url}/image?auth={server_credential['token']}&cameraNum={camera_id}&width={image_width}&height={image_height}&quality=75"
     # Other Settings
     ip_address = "Local" if camera["devicetype"] == "Local" else camera.get("address")
 
@@ -79,8 +82,9 @@ def process_camera(server_id, server_credential, camera, include_events):
         "recording_mode_m": recording_mode_m,
         "ip_address": ip_address,
         "live_stream": live_stream,
-        "width": str(camera["width"]),
-        "height": str(camera["height"]),
+        "latest_image": latest_image,
+        "image_width": image_width,
+        "image_height": image_height,
         "fps": str(camera["current-fps"]),
         "video_format": str(camera["video-format"]),
     }
