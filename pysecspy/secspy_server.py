@@ -356,6 +356,9 @@ class SecSpyServer:
                 await asyncio.sleep(0)
         except client_exceptions.ClientConnectionError:
             return
+        except Exception as ed:
+            _LOGGER.debug("Unhandled error: %s", ed)
+            return
         finally:
             _LOGGER.debug("stream disconnected")
             self.ws_connection = None
