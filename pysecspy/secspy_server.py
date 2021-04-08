@@ -174,10 +174,12 @@ class SecSpyServer:
         json_raw = xmltodict.parse(data)
         json_response = pjson.loads(pjson.dumps(json_raw))
         nvr = json_response["system"]["server"]
-        sched_preset = json_response["system"]["schedulepresetlist"]
+        sys_info = json_response["system"]
+        sched_preset = sys_info.get("schedulepresetlist")        
         presets = []
-        for preset in sched_preset["schedulepreset"]:
-            presets.append(preset)
+        if sched_preset is not None:
+            for preset in sched_preset["schedulepreset"]:
+                presets.append(preset)
 
         return {
             SERVER_NAME: nvr["server-name"],
