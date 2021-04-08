@@ -8,7 +8,7 @@ setup(
     description="Python Wrapper for SecuritySpy API",
     author="Bjarne Riis",
     author_email="bjarne@briis.com",
-    url="https://github.com/briis/pysecspyt",
+    url="https://github.com/briis/pysecspy",
     keywords=["SecuritySpy", "Surveilance", "Bensoftware", "Home Assistant", "Python"],
     install_requires=[
         "aiohttp",
