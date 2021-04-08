@@ -46,12 +46,14 @@ class SecSpyServer:
         port: int,
         username: str,
         password: str,
+        use_ssl: bool = False, 
     ):
         self._host = host
         self._port = port
         self._username = username
         self._password = password
-        self._base_url = f"http://{host}:{port}"
+        self._use_ssl = use_ssl
+        self._base_url = f"https://{host}:{port}" if self._use_ssl else f"http://{host}:{port}"
         self._token = b64encode(
             bytes(f"{self._username}:{self._password}", "utf-8")
         ).decode()
