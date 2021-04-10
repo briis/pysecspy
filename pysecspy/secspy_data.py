@@ -49,8 +49,8 @@ def process_camera(server_id, server_credential, camera, include_events):
     # Get if camera is online
     online = camera["connected"] == "yes"
     # Get Recording Mode
-    if camera.get("recordingSettings_a") is not None:
-        recording_mode_a = not camera.get("recordingSettings_A")
+    if camera.get("recordingSettings_A") is not None:
+        recording_mode_a = camera.get("recordingSettings_A")
     else:
         recording_mode_a = camera["mode-a"] == "armed"
     if camera.get("recordingSettings_C") is not None:

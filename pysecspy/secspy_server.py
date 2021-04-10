@@ -515,13 +515,30 @@ class SecSpyServer:
 
         if (
             not processed_camera["recording_mode_m"]
-            or not processed_camera["recording_mode_c"]
         ):
             processed_event = camera_event_from_ws_frames(
                 self._device_state_machine, action_json, data_json
             )
             if processed_event is not None:
-                _LOGGER.debug("Processed camera event: %s", processed_event)
+                _LOGGER.debug("Processed camera motion event: %s", processed_event)
+                processed_camera.update(processed_event)
+        if (
+            not processed_camera["recording_mode_c"]
+        ):
+            processed_event = camera_event_from_ws_frames(
+                self._device_state_machine, action_json, data_json
+            )
+            if processed_event is not None:
+                _LOGGER.debug("Processed camera continuous event: %s", processed_event)
+                processed_camera.update(processed_event)
+        if (
+            not processed_camera["recording_mode_a"]
+        ):
+            processed_event = camera_event_from_ws_frames(
+                self._device_state_machine, action_json, data_json
+            )
+            if processed_event is not None:
+                _LOGGER.debug("Processed camera action event: %s", processed_event)
                 processed_camera.update(processed_event)
 
         self.fire_event(camera_id, processed_camera)
