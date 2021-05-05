@@ -306,7 +306,14 @@ class SecSpyServer:
         return True
 
     def _process_cameras_json(self, json_response, server_id, include_events):
-        for camera in json_response["system"]["cameralist"]["camera"]:
+        items = json_response["system"]["cameralist"]["camera"]
+        cameras = []
+        if not isinstance(items, (frozenset, list, set, tuple,)):
+            cameras.append(items)
+        else:
+            cameras = items
+
+        for camera in cameras:
             camera_id = camera["number"]
             _LOGGER.debug("Processing Camera %s", camera_id)
             if self._is_first_update:
@@ -385,6 +392,7 @@ class SecSpyServer:
 
         action_array = msg.split(" ")
         action_key = action_array[3]
+        _LOGGER.debug("ACTION KEY: %s", action_key)
         model_key = None
         if action_key in CAMERA_MESSAGES:
             model_key = "camera"
@@ -446,6 +454,19 @@ class SecSpyServer:
                     "start": action_array[0],
                     "camera": action_array[2],
                     "reason": action_array[4],
+                    "isMotionDetected": True,
+                }
+                action_json = {
+                    "modelKey": "event",
+                    "action": "add",
+                    "id": action_array[2],
+                }
+
+            if action_key == "MOTION":
+                data_json = {
+                    "type": "motion",
+                    "start": action_array[0],
+                    "camera": action_array[2],
                     "isMotionDetected": True,
                 }
                 action_json = {

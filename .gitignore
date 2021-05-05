@@ -134,3 +134,5 @@ test_stream.py
 local_events.py
 latest_recording.xml
 local_test.py
+test.xml
+test2.xml
