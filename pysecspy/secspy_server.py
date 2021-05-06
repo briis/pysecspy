@@ -488,33 +488,31 @@ class SecSpyServer:
                     "id": action_array[2],
                 }
 
-            # Not used currently
+            
             if action_key == "CLASSIFY":
+                # Can contain both HUMAN and VEHICLE
+                if len(action_array) > 6:
+                    human_score = action_array[5]
+                    vehicle_score = action_array[7]
+                    reason_code = "128" if human_score > vehicle_score else "256"
+                else:
+                    reason_code = "128"
+                    if "HUMAN" not in action_array:
+                        reason_code = "256"
+
+                data_json = {
+                    "type": "motion",
+                    "start": action_array[0],
+                    "camera": action_array[2],
+                    "reason": reason_code,
+                    "isMotionDetected": True,
+                }
                 action_json = {
                     "modelKey": "event",
-                    "action": "update",
+                    "action": "add",
                     "id": action_array[2],
                 }
 
-                if len(action_array) > 6:
-                    data_json = {
-                        "type": "smart",
-                        "camera": action_array[2],
-                        action_array[4]: action_array[5],
-                        action_array[6]: action_array[7],
-                    }
-                else:
-                    human_score = action_array[5]
-                    vehicle_score = 0
-                    if "HUMAN" not in action_array:
-                        human_score = 0
-                        vehicle_score = action_array[5]
-                    data_json = {
-                        "type": "smart",
-                        "camera": action_array[2],
-                        "HUMAN": human_score,
-                        "VEHICLE": vehicle_score,
-                    }
 
             self._process_event_ws_message(action_json, data_json)
             return
@@ -532,7 +530,7 @@ class SecSpyServer:
 
         if camera_id is None:
             return
-        _LOGGER.debug("Processed camera: %s", processed_camera)
+        # _LOGGER.debug("Processed camera: %s", processed_camera)
 
         if (
             not processed_camera["recording_mode_m"]
@@ -573,7 +571,7 @@ class SecSpyServer:
         if device_id is None:
             return
 
-        _LOGGER.debug("Procesed event: %s", processed_event)
+        # _LOGGER.debug("Procesed event: %s", processed_event)
 
         self.fire_event(device_id, processed_event)
 
