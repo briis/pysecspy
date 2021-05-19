@@ -145,6 +145,7 @@ def event_from_ws_frames(state_machine, action_json, data_json):
     20190927092050 9 3 FILE /Volumes/VolName/Cam/2019-07-26/26-07-2019 15-52-00 C Cam.m4v
     20190927092055 10 3 DISARM_M
     20190927092056 11 3 OFFLINE
+    20210519172650 24 0 MOTION_END
 
     """
 
