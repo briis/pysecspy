@@ -475,7 +475,7 @@ class SecSpyServer:
                     "id": action_array[2],
                 }
 
-            if action_key == "FILE":
+            if action_key == "MOTION_END":
                 data_json = {
                     "type": "motion",
                     "end": action_array[0],
