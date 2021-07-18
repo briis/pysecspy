@@ -305,6 +305,31 @@ class SecSpyServer:
 
         return True
 
+    async def enable_camera(
+        self, camera_id: str, enabled: bool
+    ) -> bool:
+        """Enables or disables the camera.
+        Valid input for enabled is True or False
+        """
+
+        _enable = 1 if enabled else 0
+
+        cam_uri = f"{self._base_url}/camerasettings?cameraNum={camera_id}&camEnabledCheck={_enable}&action=save&auth={self._token}"
+
+        response = await self.req.get(
+            cam_uri,
+            headers=self.headers,
+            ssl=False,
+        )
+        if response.status != 200:
+            raise RequestError(
+                f"Enable/Disable camera failed: {response.status} - Reason: {response.reason}"
+            )
+
+        self._processed_data[camera_id]["online"] = enabled
+        return True
+
+
     def _process_cameras_json(self, json_response, server_id, include_events):
         items = json_response["system"]["cameralist"]["camera"]
         cameras = []
