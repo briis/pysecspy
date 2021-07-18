@@ -314,11 +314,13 @@ class SecSpyServer:
 
         _enable = 1 if enabled else 0
 
-        cam_uri = f"{self._base_url}/camerasettings?cameraNum={camera_id}&camEnabledCheck={_enable}&action=save&auth={self._token}"
+        cam_uri = f"{self._base_url}/camerasettings?auth={self._token}"
+        data = f"cameraNum={camera_id}&camEnabledCheck={_enable}&action=save"
 
-        response = await self.req.get(
+        response = await self.req.post(
             cam_uri,
             headers=self.headers,
+            data=data,
             ssl=False,
         )
         if response.status != 200:
