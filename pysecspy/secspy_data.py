@@ -16,6 +16,7 @@ CAMERA_KEYS = {
     "recording_mode_c",
     "recording_mode_m",
     "online",
+    "enabled",
     "reason",
     "lastMotion",
     "isMotionDetected",
@@ -48,6 +49,8 @@ def process_camera(server_id, server_credential, camera, include_events):
     camera_id = camera["number"]
     # Get if camera is online
     online = camera["connected"] == "yes"
+    # Get if camera is enabled
+    enabled = camera.get("enabled")
     # Get Recording Mode
     if camera.get("recordingSettings_A") is not None:
         recording_mode_a = camera.get("recordingSettings_A")
@@ -77,6 +80,7 @@ def process_camera(server_id, server_credential, camera, include_events):
         "type": "camera",
         "model": str(camera["devicename"]),
         "online": online,
+        "enabled": enabled,
         "recording_mode_a": recording_mode_a,
         "recording_mode_c": recording_mode_c,
         "recording_mode_m": recording_mode_m,

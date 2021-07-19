@@ -46,14 +46,16 @@ class SecSpyServer:
         port: int,
         username: str,
         password: str,
-        use_ssl: bool = False, 
+        use_ssl: bool = False,
     ):
         self._host = host
         self._port = port
         self._username = username
         self._password = password
         self._use_ssl = use_ssl
-        self._base_url = f"https://{host}:{port}" if self._use_ssl else f"http://{host}:{port}"
+        self._base_url = (
+            f"https://{host}:{port}" if self._use_ssl else f"http://{host}:{port}"
+        )
         self._token = b64encode(
             bytes(f"{self._username}:{self._password}", "utf-8")
         ).decode()
@@ -175,7 +177,7 @@ class SecSpyServer:
         json_response = pjson.loads(pjson.dumps(json_raw))
         nvr = json_response["system"]["server"]
         sys_info = json_response["system"]
-        sched_preset = sys_info.get("schedulepresetlist")        
+        sched_preset = sys_info.get("schedulepresetlist")
         presets = []
         if sched_preset is not None:
             for preset in sched_preset["schedulepreset"]:
@@ -247,9 +249,7 @@ class SecSpyServer:
             )
         return await response.read()
 
-    async def set_arm_mode(
-        self, camera_id: str, mode: str, enabled: bool
-    ) -> bool:
+    async def set_arm_mode(self, camera_id: str, mode: str, enabled: bool) -> bool:
         """Sets the camera arming mode .
         Valid inputs for mode: action, on_motion, continuous. Valid input for value is True or False
         """
@@ -283,9 +283,7 @@ class SecSpyServer:
         self._processed_data[camera_id][json_id] = enabled
         return True
 
-    async def enable_schedule_preset(
-        self, schedule_id: str
-    ) -> bool:
+    async def enable_schedule_preset(self, schedule_id: str) -> bool:
         """Enables a schedule preset.
         Valid inputs for schedule_id is a valid preset id
         Format: setPreset?id=X
@@ -305,9 +303,7 @@ class SecSpyServer:
 
         return True
 
-    async def enable_camera(
-        self, camera_id: str, enabled: bool
-    ) -> bool:
+    async def enable_camera(self, camera_id: str, enabled: bool) -> bool:
         """Enables or disables the camera.
         Valid input for enabled is True or False
         """
@@ -328,14 +324,21 @@ class SecSpyServer:
                 f"Enable/Disable camera failed: {response.status} - Reason: {response.reason}"
             )
 
-        self._processed_data[camera_id]["online"] = enabled
+        self._processed_data[camera_id]["enabled"] = enabled
         return True
-
 
     def _process_cameras_json(self, json_response, server_id, include_events):
         items = json_response["system"]["cameralist"]["camera"]
         cameras = []
-        if not isinstance(items, (frozenset, list, set, tuple,)):
+        if not isinstance(
+            items,
+            (
+                frozenset,
+                list,
+                set,
+                tuple,
+            ),
+        ):
             cameras.append(items)
         else:
             cameras = items
@@ -345,6 +348,7 @@ class SecSpyServer:
             _LOGGER.debug("Processing Camera %s", camera_id)
             if self._is_first_update:
                 self._update_device(camera_id, PROCESSED_EVENT_EMPTY)
+                camera["enabled"] = True
             self._device_state_machine.update(camera_id, camera)
             self._update_device(
                 camera_id,
@@ -515,7 +519,6 @@ class SecSpyServer:
                     "id": action_array[2],
                 }
 
-            
             if action_key == "CLASSIFY":
                 # Can contain both HUMAN and VEHICLE
                 if len(action_array) > 6:
@@ -540,7 +543,6 @@ class SecSpyServer:
                     "id": action_array[2],
                 }
 
-
             self._process_event_ws_message(action_json, data_json)
             return
 
@@ -559,27 +561,21 @@ class SecSpyServer:
             return
         # _LOGGER.debug("Processed camera: %s", processed_camera)
 
-        if (
-            not processed_camera["recording_mode_m"]
-        ):
+        if not processed_camera["recording_mode_m"]:
             processed_event = camera_event_from_ws_frames(
                 self._device_state_machine, action_json, data_json
             )
             if processed_event is not None:
                 _LOGGER.debug("Processed camera motion event: %s", processed_event)
                 processed_camera.update(processed_event)
-        if (
-            not processed_camera["recording_mode_c"]
-        ):
+        if not processed_camera["recording_mode_c"]:
             processed_event = camera_event_from_ws_frames(
                 self._device_state_machine, action_json, data_json
             )
             if processed_event is not None:
                 _LOGGER.debug("Processed camera continuous event: %s", processed_event)
                 processed_camera.update(processed_event)
-        if (
-            not processed_camera["recording_mode_a"]
-        ):
+        if not processed_camera["recording_mode_a"]:
             processed_event = camera_event_from_ws_frames(
                 self._device_state_machine, action_json, data_json
             )
