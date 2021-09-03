@@ -4,6 +4,7 @@ import json as pjson
 import logging
 import time
 from base64 import b64encode
+from typing import Optional
 
 import aiohttp
 import xmltodict
@@ -30,6 +31,9 @@ from pysecspy.secspy_data import (
     event_from_ws_frames,
     process_camera,
 )
+
+DEFAULT_SNAPSHOT_WIDTH = 1920
+DEFAULT_SNAPSHOT_HEIGHT = 1080
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -200,9 +204,12 @@ class SecSpyServer:
         """Returns a Server Information for this NVR."""
         return await self._get_server_information()
 
-    async def get_snapshot_image(self, camera_id: str) -> bytes:
+    async def get_snapshot_image(self, camera_id: str, width: Optional[int] = None, height: Optional[int] = None) -> bytes:
         """ Returns a Snapshot image from the specified Camera. """
-        image_uri = f"{self._base_url}/image?cameraNum={camera_id}&width=1920&height=1080&quality=75&auth={self._token}"
+        image_width = width or DEFAULT_SNAPSHOT_WIDTH
+        image_height = height or DEFAULT_SNAPSHOT_HEIGHT
+
+        image_uri = f"{self._base_url}/image?cameraNum={camera_id}&width={image_width}&height={image_height}&quality=75&auth={self._token}"
         _LOGGER.debug(image_uri)
 
         response = await self.req.get(
