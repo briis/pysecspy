@@ -193,6 +193,7 @@ class SecSpyServer:
             SERVER_ID: nvr["uuid"],
             "server_ip_address": nvr["ip1"],
             "schedule_presets": presets,
+            "server_port": self._port,
         }
 
     async def get_unique_id(self) -> None:
