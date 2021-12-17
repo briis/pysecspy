@@ -311,6 +311,22 @@ class SecSpyServer:
 
         return True
 
+    async def set_ptz_preset(self, camera_id: str, preset_id: str, speed: int=50) -> bool:
+        """Set a PTZ Preset."""
+        cam_uri = f"{self._base_url}/ptz/command?cameraNum={camera_id}&command={preset_id}&speed={speed}&auth={self._token}"
+
+        response = await self.req.get(
+            cam_uri,
+            headers=self.headers,
+            ssl=False,
+        )
+        if response.status != 200:
+            raise RequestError(
+                f"Setting PTZ Preset failed: {response.status} - Reason: {response.reason}"
+            )
+
+        return True
+
     async def enable_camera(self, camera_id: str, enabled: bool) -> bool:
         """Enables or disables the camera.
         Valid input for enabled is True or False
