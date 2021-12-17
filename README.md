@@ -1,5 +1,7 @@
 # Python Wrapper for the SecuritySpy API
 
+![Latest PyPI version](https://img.shields.io/pypi/v/pysecspy) ![Supported Python](https://img.shields.io/pypi/pyversions/pysecspy)
+
 This module communicates with a [SecuritySpy Video Server](https://www.bensoftware.com/securityspy/) and can retrieve and set data for:
 
 * Cameras
