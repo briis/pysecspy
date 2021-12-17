@@ -72,6 +72,8 @@ def process_camera(server_id, server_credential, camera, include_events):
     image_width = str(camera["width"])
     image_height = str(camera["height"])
     latest_image = f"http://{base_url}/image?auth={server_credential['token']}&cameraNum={camera_id}&width={image_width}&height={image_height}&quality=75"
+    # PTZ
+    ptz_capabilities = camera.get("ptzcapabilities")
     # Other Settings
     ip_address = "Local" if camera["devicetype"] == "Local" else camera.get("address")
 
@@ -91,6 +93,7 @@ def process_camera(server_id, server_credential, camera, include_events):
         "image_height": image_height,
         "fps": str(camera["current-fps"]),
         "video_format": str(camera["video-format"]),
+        "ptz_capabilities": ptz_capabilities,
     }
 
     if server_id is not None:
