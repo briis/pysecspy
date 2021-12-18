@@ -74,6 +74,13 @@ def process_camera(server_id, server_credential, camera, include_events):
     latest_image = f"http://{base_url}/image?auth={server_credential['token']}&cameraNum={camera_id}&width={image_width}&height={image_height}&quality=75"
     # PTZ
     ptz_capabilities = camera.get("ptzcapabilities")
+    preset_list = []
+    if ptz_capabilities is not None and ptz_capabilities > 0:
+        # Build a list of PTZ Presets
+        for preset in range(1, 10):
+            if camera.get(f"preset-name-{preset}") is not None:
+                preset_list.append(camera.get(f"preset-name-{preset}"))
+
     # Other Settings
     ip_address = "Local" if camera["devicetype"] == "Local" else camera.get("address")
 
@@ -94,6 +101,7 @@ def process_camera(server_id, server_credential, camera, include_events):
         "fps": str(camera["current-fps"]),
         "video_format": str(camera["video-format"]),
         "ptz_capabilities": ptz_capabilities,
+        "ptz_presets": preset_list,
     }
 
     if server_id is not None:
