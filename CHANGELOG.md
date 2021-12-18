@@ -7,7 +7,7 @@ This document will contain a list of all major changes.
 ### Added
 
 - New function to activate a PTZ Preset. `set_ptz_preset`.
-- List of defined PTZ presets now returned as `ptz_presets`
+- List of defined PTZ presets per camera, now returned as `ptz_presets`
 - PTZ capabilities now returned as `ptz_capabilities`. Value is 0 if no capabilities, else a binary integer.
 
 ### Changed
