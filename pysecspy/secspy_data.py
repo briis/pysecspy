@@ -75,7 +75,7 @@ def process_camera(server_id, server_credential, camera, include_events):
     # PTZ
     ptz_capabilities = camera.get("ptzcapabilities")
     preset_list = []
-    if ptz_capabilities is not None and ptz_capabilities > 0:
+    if ptz_capabilities is not None and int(ptz_capabilities) > 0:
         # Build a list of PTZ Presets
         for preset in range(1, 10):
             if camera.get(f"preset-name-{preset}") is not None:
