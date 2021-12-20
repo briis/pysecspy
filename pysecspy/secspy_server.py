@@ -425,6 +425,7 @@ class SecSpyServer:
             return
         finally:
             _LOGGER.debug("stream disconnected")
+            await self.async_disconnect_ws()
             self.ws_connection = None
 
     def subscribe_websocket(self, ws_callback):
