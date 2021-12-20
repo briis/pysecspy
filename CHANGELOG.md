@@ -2,6 +2,13 @@
 
 This document will contain a list of all major changes.
 
+## [1.2.1] - Unreleased
+
+### Fixed
+
+- Enure that the stream is properly closed, when exiting program.
+
+
 ## [1.2.0] - 2021-12-20
 
 ### Added
