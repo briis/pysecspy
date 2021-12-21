@@ -211,7 +211,6 @@ class SecSpyServer:
         image_height = height or DEFAULT_SNAPSHOT_HEIGHT
 
         image_uri = f"{self._base_url}/image?cameraNum={camera_id}&width={image_width}&height={image_height}&quality=75&auth={self._token}"
-        _LOGGER.debug(image_uri)
 
         response = await self.req.get(
             image_uri,
