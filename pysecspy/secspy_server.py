@@ -503,7 +503,6 @@ class SecSpyServer:
             return
 
         if model_key == "event":
-            _LOGGER.debug("Event Action key: %s", action_key)
             if action_key == "ONLINE":
                 data_json = {
                     "type": "online",
@@ -647,7 +646,7 @@ class SecSpyServer:
         if device_id is None:
             return
 
-        # _LOGGER.debug("Procesed event: %s", processed_event)
+        _LOGGER.debug("Procesed event: %s", processed_event)
 
         self.fire_event(device_id, processed_event)
 

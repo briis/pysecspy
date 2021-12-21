@@ -200,6 +200,7 @@ def camera_event_from_ws_frames(state_machine, action_json, data_json):
     start_time = None
     event_length = 0
     event_on = False
+    is_online = data_json.get("online")
 
     last_motion = int(time.time()) + int(data_json["timesincelastmotion"])
     is_motion_detected = data_json.get("isMotionDetected")
@@ -229,6 +230,7 @@ def camera_event_from_ws_frames(state_machine, action_json, data_json):
         "event_start": start_time,
         "event_length": event_length,
         "event_score": 0,
+        "online": is_online,
     }
 
 
