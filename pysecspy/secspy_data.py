@@ -134,7 +134,6 @@ def camera_update_from_ws_frames(
         _LOGGER.debug("Skipping non-adopted camera: %s", data_json)
         return None, None
 
-    _LOGGER.debug("CAM UPDATE WS FRAME: %s", json.dumps(data_json))
     camera = state_machine.update(camera_id, data_json)
 
     if data_json.keys().isdisjoint(CAMERA_KEYS):
@@ -243,7 +242,6 @@ def process_event(event):
     event_reason = event.get("reason")
     event_online = event.get("isOnline")
 
-    _LOGGER.debug("Process Event: %s Online: %s", event_type, event_online)
     event_length = 0
     start_time = None
 
@@ -296,7 +294,6 @@ class SecspyDeviceStateMachine:
     def update(self, device_id, new_json):
         """Update an device in the state machine."""
         self._devices.setdefault(device_id, {}).update(new_json)
-        _LOGGER.debug("STATE MACHINE UPDATE: %s", self._devices[device_id])
         return self._devices[device_id]
 
     def set_motion_detected_time(self, device_id, timestamp):

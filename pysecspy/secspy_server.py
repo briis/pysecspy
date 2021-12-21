@@ -448,7 +448,6 @@ class SecSpyServer:
 
         action_array = msg.split(" ")
         action_key = action_array[3]
-        _LOGGER.debug("ACTION KEY: %s", action_key)
         model_key = None
         if action_key in CAMERA_MESSAGES:
             model_key = "camera"
@@ -610,7 +609,6 @@ class SecSpyServer:
 
         if camera_id is None:
             return
-        # _LOGGER.debug("Processed camera: %s", processed_camera)
 
         if not processed_camera["recording_mode_m"]:
             processed_event = camera_event_from_ws_frames(
@@ -632,13 +630,6 @@ class SecSpyServer:
             )
             if processed_event is not None:
                 _LOGGER.debug("Processed camera action event: %s", processed_event)
-                processed_camera.update(processed_event)
-        if not processed_camera["online"]:
-            processed_event = camera_event_from_ws_frames(
-                self._device_state_machine, action_json, data_json
-            )
-            if processed_event is not None:
-                _LOGGER.debug("Processed camera online event: %s", processed_event)
                 processed_camera.update(processed_event)
 
         self.fire_event(camera_id, processed_camera)
