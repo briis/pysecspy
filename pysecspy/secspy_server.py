@@ -503,6 +503,27 @@ class SecSpyServer:
             return
 
         if model_key == "event":
+            _LOGGER.debug("Event Action key: %s", action_key)
+            if action_key == "ONLINE":
+                data_json = {
+                    "type": "online",
+                    "online": True,
+                }
+                action_json = {
+                    "modelKey": "event",
+                    "action": "add",
+                    "id": action_array[2],
+                }
+            if action_key == "OFFLINE":
+                data_json = {
+                    "type": "online",
+                    "online": False,
+                }
+                action_json = {
+                    "modelKey": "event",
+                    "action": "add",
+                    "id": action_array[2],
+                }
 
             if action_key == "TRIGGER_M":
                 data_json = {
@@ -606,6 +627,13 @@ class SecSpyServer:
             )
             if processed_event is not None:
                 _LOGGER.debug("Processed camera action event: %s", processed_event)
+                processed_camera.update(processed_event)
+        if not processed_camera["online"]:
+            processed_event = camera_event_from_ws_frames(
+                self._device_state_machine, action_json, data_json
+            )
+            if processed_event is not None:
+                _LOGGER.debug("Processed camera online event: %s", processed_event)
                 processed_camera.update(processed_event)
 
         self.fire_event(camera_id, processed_camera)
