@@ -2,11 +2,14 @@
 
 This document will contain a list of all major changes.
 
-## [1.2.1] - Unreleased
+## [1.2.1] - 2021-12-21
 
 ### Fixed
 
 - Enure that the stream is properly closed, when exiting program.
+
+### Added
+
 - Adding Camera Online/Offline event detection, to ensure timely updates.
 
 
