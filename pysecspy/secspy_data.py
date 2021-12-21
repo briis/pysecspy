@@ -15,7 +15,7 @@ CAMERA_KEYS = {
     "recording_mode_a",
     "recording_mode_c",
     "recording_mode_m",
-    "online",
+    "isOnline",
     "enabled",
     "reason",
     "lastMotion",
@@ -35,7 +35,7 @@ PROCESSED_EVENT_EMPTY = {
     "event_start": None,
     "event_on": False,
     "event_type": None,
-    "online": True,
+    "event_online": True,
     "event_length": 0,
     "event_object": [],
 }
@@ -194,14 +194,14 @@ def event_from_ws_frames(state_machine, action_json, data_json):
 def camera_event_from_ws_frames(state_machine, action_json, data_json):
     """Create processed events from the camera model."""
 
-    if "isMotionDetected" not in data_json and "timesincelastmotion" not in data_json:
+    if "isMotionDetected" not in data_json and "timesincelastmotion" not in data_json and "isOnline" not in data_json:
         return None
 
     camera_id = action_json["id"]
     start_time = None
     event_length = 0
     event_on = False
-    is_online = data_json.get("online")
+    is_online = data_json.get("isOnline")
 
     last_motion = int(time.time()) + int(data_json["timesincelastmotion"])
     is_motion_detected = data_json.get("isMotionDetected")
@@ -231,7 +231,7 @@ def camera_event_from_ws_frames(state_machine, action_json, data_json):
         "event_start": start_time,
         "event_length": event_length,
         "event_score": 0,
-        "online": is_online,
+        "event_online": is_online,
     }
 
 
@@ -241,8 +241,9 @@ def process_event(event):
     end = event.get("end")
     event_type = event.get("type")
     event_reason = event.get("reason")
-    event_online = event.get("online")
+    event_online = event.get("isOnline")
 
+    _LOGGER.debug("Process Event: %s Online: %s", event_type, event_online)
     event_length = 0
     start_time = None
 
@@ -263,7 +264,7 @@ def process_event(event):
         "event_start": start_time,
         "event_length": event_length,
         "event_object": event_object,
-        "online": event_online,
+        "event_online": event_online,
     }
 
     if event_type in (EVENT_MOTION, EVENT_SMART_DETECT_ZONE):
@@ -295,6 +296,7 @@ class SecspyDeviceStateMachine:
     def update(self, device_id, new_json):
         """Update an device in the state machine."""
         self._devices.setdefault(device_id, {}).update(new_json)
+        _LOGGER.debug("STATE MACHINE UPDATE: %s", self._devices[device_id])
         return self._devices[device_id]
 
     def set_motion_detected_time(self, device_id, timestamp):

@@ -490,14 +490,14 @@ class SecSpyServer:
                 data_json = {
                     "recordingSettings_M": False,
                 }
-            if action_key == "ONLINE":
-                data_json = {
-                    "online": True,
-                }
-            if action_key == "OFFLINE":
-                data_json = {
-                    "online": False,
-                }
+            # if action_key == "ONLINE":
+            #     data_json = {
+            #         "online": True,
+            #     }
+            # if action_key == "OFFLINE":
+            #     data_json = {
+            #         "online": False,
+            #     }
 
             self._process_camera_ws_message(action_json, data_json)
             return
@@ -506,7 +506,8 @@ class SecSpyServer:
             if action_key == "ONLINE":
                 data_json = {
                     "type": "online",
-                    "online": True,
+                    "camera": action_array[2],
+                    "isOnline": True,
                 }
                 action_json = {
                     "modelKey": "event",
@@ -516,7 +517,8 @@ class SecSpyServer:
             if action_key == "OFFLINE":
                 data_json = {
                     "type": "online",
-                    "online": False,
+                    "camera": action_array[2],
+                    "isOnline": False,
                 }
                 action_json = {
                     "modelKey": "event",
@@ -531,6 +533,7 @@ class SecSpyServer:
                     "camera": action_array[2],
                     "reason": action_array[4],
                     "isMotionDetected": True,
+                    "isOnline": True,
                 }
                 action_json = {
                     "modelKey": "event",
@@ -544,6 +547,7 @@ class SecSpyServer:
                     "start": action_array[0],
                     "camera": action_array[2],
                     "isMotionDetected": True,
+                    "isOnline": True,
                 }
                 action_json = {
                     "modelKey": "event",
@@ -557,6 +561,7 @@ class SecSpyServer:
                     "end": action_array[0],
                     "camera": action_array[2],
                     "isMotionDetected": False,
+                    "isOnline": True,
                 }
                 action_json = {
                     "modelKey": "event",
@@ -581,6 +586,7 @@ class SecSpyServer:
                     "camera": action_array[2],
                     "reason": reason_code,
                     "isMotionDetected": True,
+                    "isOnline": True,
                 }
                 action_json = {
                     "modelKey": "event",
