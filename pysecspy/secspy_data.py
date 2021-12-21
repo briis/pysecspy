@@ -35,6 +35,7 @@ PROCESSED_EVENT_EMPTY = {
     "event_start": None,
     "event_on": False,
     "event_type": None,
+    "online": True,
     "event_length": 0,
     "event_object": [],
 }
@@ -240,6 +241,7 @@ def process_event(event):
     end = event.get("end")
     event_type = event.get("type")
     event_reason = event.get("reason")
+    event_online = event.get("online")
 
     event_length = 0
     start_time = None
@@ -261,6 +263,7 @@ def process_event(event):
         "event_start": start_time,
         "event_length": event_length,
         "event_object": event_object,
+        "online": event_online,
     }
 
     if event_type in (EVENT_MOTION, EVENT_SMART_DETECT_ZONE):
