@@ -2,6 +2,12 @@
 
 This document will contain a list of all major changes.
 
+## [1.3.0] - 2022-04-17
+
+### Changed
+
+- Added percentage threshold for Object Detection on Motion events
+
 ## [1.2.1] - 2021-12-21
 
 ### Fixed
