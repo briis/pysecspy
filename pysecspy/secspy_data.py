@@ -38,6 +38,7 @@ PROCESSED_EVENT_EMPTY = {
     "event_online": True,
     "event_length": 0,
     "event_object": [],
+    "event_score": 0,
 }
 
 REASON_CODES = {"128": "Human", "256": "Vehicle"}
