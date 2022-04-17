@@ -2,6 +2,12 @@
 
 This document will contain a list of all major changes.
 
+## [1.3.2] - 2022-04-17
+
+### Fixed
+
+- False objectdetections could occur, if neither Vehicle or Human. Now corrected.
+
 ## [1.3.1] - 2022-04-17
 
 ### Fixed
