@@ -2,9 +2,15 @@
 
 This document will contain a list of all major changes.
 
+## [1.3.1] - 2022-04-17
+
+### Fixed
+
+- Initial event_score value is needed when starting the loop.
+
 ## [1.3.0] - 2022-04-17
 
-### Changed
+### Added
 
 - Added percentage threshold for Object Detection on Motion events
 
