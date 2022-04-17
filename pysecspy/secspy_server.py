@@ -85,6 +85,8 @@ class SecSpyServer:
         self._ws_subscriptions = []
         self._is_first_update = True
         self._signal_stop = False
+        self.global_event_score = 0
+        self.global_event_oject = None
 
     @property
     def devices(self):
@@ -525,11 +527,13 @@ class SecSpyServer:
                 }
 
             if action_key == "TRIGGER_M":
+                self.global_event_oject = action_array[4]
                 data_json = {
                     "type": "motion",
                     "start": action_array[0],
                     "camera": action_array[2],
-                    "reason": action_array[4],
+                    "reason": self.global_event_oject,
+                    "event_score": self.global_event_score,
                     "isMotionDetected": True,
                     "isOnline": True,
                 }
@@ -544,6 +548,8 @@ class SecSpyServer:
                     "type": "motion",
                     "start": action_array[0],
                     "camera": action_array[2],
+                    "reason": self.global_event_oject,
+                    "event_score": self.global_event_score,
                     "isMotionDetected": True,
                     "isOnline": True,
                 }
@@ -554,6 +560,8 @@ class SecSpyServer:
                 }
 
             if action_key == "MOTION_END":
+                self.global_event_score = 0
+                self.global_event_oject = None
                 data_json = {
                     "type": "motion",
                     "end": action_array[0],
@@ -569,20 +577,29 @@ class SecSpyServer:
 
             if action_key == "CLASSIFY":
                 # Can contain both HUMAN and VEHICLE
+                _LOGGER.debug("CLASSIFY: %s", action_array)
                 if len(action_array) > 6:
                     human_score = action_array[5]
                     vehicle_score = action_array[7]
-                    reason_code = "128" if human_score > vehicle_score else "256"
+                    # reason_code = "128" if human_score > vehicle_score else "256"
+                    if human_score > vehicle_score:
+                        self.global_event_oject = "128"
+                        self.global_event_score = human_score
+                    else:
+                        self.global_event_oject = "256"
+                        self.global_event_score = vehicle_score
                 else:
-                    reason_code = "128"
+                    self.global_event_oject = "128"
+                    self.global_event_score = action_array[5]
                     if "HUMAN" not in action_array:
-                        reason_code = "256"
+                        self.global_event_oject = "256"
 
                 data_json = {
                     "type": "motion",
                     "start": action_array[0],
                     "camera": action_array[2],
-                    "reason": reason_code,
+                    "reason": self.global_event_oject,
+                    "event_score": self.global_event_score,
                     "isMotionDetected": True,
                     "isOnline": True,
                 }

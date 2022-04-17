@@ -229,7 +229,6 @@ def camera_event_from_ws_frames(state_machine, action_json, data_json):
         "event_type": "motion",
         "event_start": start_time,
         "event_length": event_length,
-        "event_score": 0,
         "event_online": is_online,
     }
 
@@ -241,6 +240,10 @@ def process_event(event):
     event_type = event.get("type")
     event_reason = event.get("reason")
     event_online = event.get("isOnline")
+    if not event.get("event_score"):
+        event_score = 0
+    else:
+        event_score = event.get("event_score")
 
     event_length = 0
     start_time = None
@@ -262,6 +265,7 @@ def process_event(event):
         "event_start": start_time,
         "event_length": event_length,
         "event_object": event_object,
+        "event_score": event_score,
         "event_online": event_online,
     }
 
