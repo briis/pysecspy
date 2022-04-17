@@ -6,7 +6,7 @@ This document will contain a list of all major changes.
 
 ### Fixed
 
-- False objectdetections could occur, if neither Vehicle or Human. Now corrected.
+- False object detections could occur, if neither Vehicle or Human. Now corrected.
 
 ## [1.3.1] - 2022-04-17
 
