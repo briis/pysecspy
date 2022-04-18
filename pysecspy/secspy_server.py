@@ -85,7 +85,8 @@ class SecSpyServer:
         self._ws_subscriptions = []
         self._is_first_update = True
         self._signal_stop = False
-        self.global_event_score = 0
+        self.global_event_score_human = 0
+        self.global_event_score_vehicle = 0
         self.global_event_object = None
 
     @property
@@ -533,7 +534,8 @@ class SecSpyServer:
                     "start": action_array[0],
                     "camera": action_array[2],
                     "reason": self.global_event_object,
-                    "event_score": self.global_event_score,
+                    "event_score_human": self.global_event_score_human,
+                    "event_score_vehicle": self.global_event_score_vehicle,
                     "isMotionDetected": True,
                     "isOnline": True,
                 }
@@ -549,7 +551,8 @@ class SecSpyServer:
                     "start": action_array[0],
                     "camera": action_array[2],
                     "reason": self.global_event_object,
-                    "event_score": self.global_event_score,
+                    "event_score_human": self.global_event_score_human,
+                    "event_score_vehicle": self.global_event_score_vehicle,
                     "isMotionDetected": True,
                     "isOnline": True,
                 }
@@ -560,7 +563,8 @@ class SecSpyServer:
                 }
 
             if action_key == "MOTION_END":
-                self.global_event_score = 0
+                self.global_event_score_human = 0
+                self.global_event_score_vehicle = 0
                 self.global_event_object = None
                 data_json = {
                     "type": "motion",
@@ -579,30 +583,33 @@ class SecSpyServer:
                 # Can contain both HUMAN and VEHICLE
                 _LOGGER.debug("CLASSIFY: %s", action_array)
                 if len(action_array) > 6:
-                    human_score = action_array[5]
-                    vehicle_score = action_array[7]
-                    if human_score > vehicle_score:
+                    self.global_event_score_human = action_array[5]
+                    self.global_event_score_vehicle = action_array[7]
+                    if self.global_event_score_human > self.global_event_score_vehicle:
                         self.global_event_object = "128"
-                        self.global_event_score = human_score
                     else:
                         self.global_event_object = "256"
-                        self.global_event_score = vehicle_score
                 else:
                     if "HUMAN" or "VEHICLE" not in action_array:
                         self.global_event_object = []
-                        self.global_event_score = 0
+                        self.global_event_score_human = 0
+                        self.global_event_score_vehicle = 0
                     else:
                         self.global_event_object = "128"
-                        self.global_event_score = action_array[5]
+                        self.global_event_score_human = action_array[5]
+                        self.global_event_score_vehicle = 0
                         if "HUMAN" not in action_array:
                             self.global_event_object = "256"
+                            self.global_event_score_human = 0
+                            self.global_event_score_vehicle = action_array[5]
 
                 data_json = {
                     "type": "motion",
                     "start": action_array[0],
                     "camera": action_array[2],
                     "reason": self.global_event_object,
-                    "event_score": self.global_event_score,
+                    "event_score_human": self.global_event_score_human,
+                    "event_score_vehicle": self.global_event_score_vehicle,
                     "isMotionDetected": True,
                     "isOnline": True,
                 }
