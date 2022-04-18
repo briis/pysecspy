@@ -2,6 +2,13 @@
 
 This document will contain a list of all major changes.
 
+## [1.3.4] - Unreleased
+
+### Fixed
+
+- If no Object detected return None instead of an empty array.
+
+
 ## [1.3.3] - 2022-04-18
 
 ### Added
