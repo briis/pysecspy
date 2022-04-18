@@ -591,7 +591,7 @@ class SecSpyServer:
                         self.global_event_object = "256"
                 else:
                     if "HUMAN" or "VEHICLE" not in action_array:
-                        self.global_event_object = []
+                        self.global_event_object = None
                         self.global_event_score_human = 0
                         self.global_event_score_vehicle = 0
                     else:
