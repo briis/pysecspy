@@ -2,6 +2,12 @@
 
 This document will contain a list of all major changes.
 
+## [1.3.3] - 2022-04-18
+
+### Added
+
+- Replaced the `event_score` attribute with two new attributes: `event_score_human` and `event_score_vehicle`. The `event_object` will still hold the object that has the highest score of the two, but if you only want to look for a person moving, you can check on the `event_score_human` value.
+
 ## [1.3.2] - 2022-04-17
 
 ### Fixed
