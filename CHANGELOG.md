@@ -2,7 +2,7 @@
 
 This document will contain a list of all major changes.
 
-## [1.3.4] - Unreleased
+## [1.3.4] - 2022-05-26
 
 ### Fixed
 
