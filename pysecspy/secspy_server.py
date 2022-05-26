@@ -613,7 +613,6 @@ class SecSpyServer:
                     "reason": self.global_event_object,
                     "event_score_human": self.global_event_score_human,
                     "event_score_vehicle": self.global_event_score_vehicle,
-                    # "isMotionDetected": True,
                     "isOnline": True,
                 }
                 action_json = {
