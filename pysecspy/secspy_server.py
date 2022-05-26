@@ -571,6 +571,8 @@ class SecSpyServer:
                     "end": action_array[0],
                     "camera": action_array[2],
                     "isMotionDetected": False,
+                    "event_score_human": self.global_event_score_human,
+                    "event_score_vehicle": self.global_event_score_vehicle,
                     "isOnline": True,
                 }
                 action_json = {
@@ -610,7 +612,7 @@ class SecSpyServer:
                     "reason": self.global_event_object,
                     "event_score_human": self.global_event_score_human,
                     "event_score_vehicle": self.global_event_score_vehicle,
-                    "isMotionDetected": True,
+                    # "isMotionDetected": True,
                     "isOnline": True,
                 }
                 action_json = {

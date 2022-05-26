@@ -7,6 +7,7 @@ This document will contain a list of all major changes.
 ### Fixed
 
 - If no Object detected return None instead of an empty array.
+- Reset Event Objects when Motion ends.
 
 
 ## [1.3.3] - 2022-04-18
