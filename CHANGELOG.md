@@ -2,6 +2,12 @@
 
 This document will contain a list of all major changes.
 
+## [1.3.5] - 2022-08-28
+
+### Added
+
+- New attribute `event_score_animal`, that holds the score of an animal being detected. Requires SecuritySpy V5.5.
+
 ## [1.3.4] - 2022-05-26
 
 ### Fixed
