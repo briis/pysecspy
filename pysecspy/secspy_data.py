@@ -40,9 +40,10 @@ PROCESSED_EVENT_EMPTY = {
     "event_object": None,
     "event_score_human": 0,
     "event_score_vehicle": 0,
+    "event_score_animal": 0,
 }
 
-REASON_CODES = {"128": "Human", "256": "Vehicle"}
+REASON_CODES = {"128": "Human", "256": "Vehicle", "512": "Animal"}
 
 
 def process_camera(server_id, server_credential, camera, include_events):
@@ -242,14 +243,9 @@ def process_event(event):
     event_type = event.get("type")
     event_reason = event.get("reason")
     event_online = event.get("isOnline")
-    if not event.get("event_score_human"):
-        event_score_human = 0
-    else:
-        event_score_human = event.get("event_score_human")
-    if not event.get("event_score_vehicle"):
-        event_score_vehicle = 0
-    else:
-        event_score_vehicle = event.get("event_score_vehicle")
+    event_score_human = 0 if not event.get("event_score_human") else event.get("event_score_human")
+    event_score_vehicle = 0 if not event.get("event_score_vehicle") else event.get("event_score_vehicle")
+    event_score_animal = 0 if not event.get("event_score_animal") else event.get("event_score_animal")
 
     event_length = 0
     start_time = None
@@ -273,6 +269,7 @@ def process_event(event):
         "event_object": event_object,
         "event_score_human": event_score_human,
         "event_score_vehicle": event_score_vehicle,
+        "event_score_animal": event_score_animal,
         "event_online": event_online,
     }
 

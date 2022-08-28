@@ -50,12 +50,14 @@ class SecSpyServer:
         port: int,
         username: str,
         password: str,
+        min_classify_score: int = 50,
         use_ssl: bool = False,
     ):
         self._host = host
         self._port = port
         self._username = username
         self._password = password
+        self._min_classify_score = min_classify_score
         self._use_ssl = use_ssl
         self._base_url = (
             f"https://{host}:{port}" if self._use_ssl else f"http://{host}:{port}"
@@ -87,6 +89,7 @@ class SecSpyServer:
         self._signal_stop = False
         self.global_event_score_human = 0
         self.global_event_score_vehicle = 0
+        self.global_event_score_animal = 0
         self.global_event_object = None
 
     @property
@@ -447,6 +450,7 @@ class SecSpyServer:
         """Process websocket messages."""
 
         # pylint: disable=too-many-branches
+        _LOGGER.debug("MSG: %s", msg)
 
         action_array = msg.split(" ")
         action_key = action_array[3]
@@ -583,28 +587,40 @@ class SecSpyServer:
                 }
 
             if action_key == "CLASSIFY":
-                # Can contain both HUMAN and VEHICLE
+                # Format: 20220828102950 69 0 CLASSIFY HUMAN 2 VEHICLE 1 ANIMAL 0
                 _LOGGER.debug("CLASSIFY: %s", action_array)
-                if len(action_array) > 6:
-                    self.global_event_score_human = action_array[5]
-                    self.global_event_score_vehicle = action_array[7]
-                    if self.global_event_score_human > self.global_event_score_vehicle:
-                        self.global_event_object = "128"
-                    else:
-                        self.global_event_object = "256"
-                else:
-                    if "HUMAN" or "VEHICLE" not in action_array:
-                        self.global_event_object = None
-                        self.global_event_score_human = 0
-                        self.global_event_score_vehicle = 0
-                    else:
-                        self.global_event_object = "128"
-                        self.global_event_score_human = action_array[5]
-                        self.global_event_score_vehicle = 0
-                        if "HUMAN" not in action_array:
-                            self.global_event_object = "256"
-                            self.global_event_score_human = 0
-                            self.global_event_score_vehicle = action_array[5]
+                self.global_event_score_human = action_array[5]
+                self.global_event_score_vehicle = action_array[7]
+                self.global_event_score_animal = action_array[9]
+                self.global_event_object = None
+                # Set the Event Object to the highest score
+                if (self.global_event_score_human > self.global_event_score_vehicle) and (self.global_event_score_human > self.global_event_score_animal):
+                    self.global_event_object = "128"
+                if (self.global_event_score_vehicle > self.global_event_score_human) and (self.global_event_score_vehicle > self.global_event_score_animal):
+                    self.global_event_object = "256"
+                if (self.global_event_score_animal > self.global_event_score_human) and (self.global_event_score_animal > self.global_event_score_vehicle):
+                    self.global_event_object = "512"
+
+                # if len(action_array) > 6:
+                #     self.global_event_score_human = action_array[5]
+                #     self.global_event_score_vehicle = action_array[7]
+                #     if self.global_event_score_human > self.global_event_score_vehicle:
+                #         self.global_event_object = "128"
+                #     else:
+                #         self.global_event_object = "256"
+                # else:
+                #     if "HUMAN" or "VEHICLE" or "ANIMAL" not in action_array:
+                #         self.global_event_object = None
+                #         self.global_event_score_human = 0
+                #         self.global_event_score_vehicle = 0
+                #     else:
+                #         self.global_event_object = "128"
+                #         self.global_event_score_human = action_array[5]
+                #         self.global_event_score_vehicle = 0
+                #         if "HUMAN" not in action_array:
+                #             self.global_event_object = "256"
+                #             self.global_event_score_human = 0
+                #             self.global_event_score_vehicle = action_array[5]
 
                 data_json = {
                     "type": "motion",
@@ -613,6 +629,7 @@ class SecSpyServer:
                     "reason": self.global_event_object,
                     "event_score_human": self.global_event_score_human,
                     "event_score_vehicle": self.global_event_score_vehicle,
+                    "event_score_animal": self.global_event_score_animal,
                     "isOnline": True,
                 }
                 action_json = {
