@@ -450,7 +450,7 @@ class SecSpyServer:
         """Process websocket messages."""
 
         # pylint: disable=too-many-branches
-        _LOGGER.debug("MSG: %s", msg)
+        # _LOGGER.debug("MSG: %s", msg)
 
         action_array = msg.split(" ")
         action_key = action_array[3]
@@ -589,17 +589,22 @@ class SecSpyServer:
             if action_key == "CLASSIFY":
                 # Format: 20220828102950 69 0 CLASSIFY HUMAN 2 VEHICLE 1 ANIMAL 0
                 _LOGGER.debug("CLASSIFY: %s", action_array)
-                self.global_event_score_human = action_array[5]
-                self.global_event_score_vehicle = action_array[7]
-                self.global_event_score_animal = action_array[9]
-                self.global_event_object = None
-                # Set the Event Object to the highest score
-                if (self.global_event_score_human > self.global_event_score_vehicle) and (self.global_event_score_human > self.global_event_score_animal):
-                    self.global_event_object = "128"
-                if (self.global_event_score_vehicle > self.global_event_score_human) and (self.global_event_score_vehicle > self.global_event_score_animal):
-                    self.global_event_object = "256"
-                if (self.global_event_score_animal > self.global_event_score_human) and (self.global_event_score_animal > self.global_event_score_vehicle):
-                    self.global_event_object = "512"
+                # Need to put this is, as animal reuires SS V5.5
+                try:
+                    self.global_event_score_human = action_array[5]
+                    self.global_event_score_vehicle = action_array[7]
+                    self.global_event_score_animal = action_array[9]
+                    self.global_event_object = None
+                except:
+                    self.global_event_score_animal = 0
+                finally:
+                    # Set the Event Object to the highest score
+                    if (self.global_event_score_human > self.global_event_score_vehicle) and (self.global_event_score_human > self.global_event_score_animal):
+                        self.global_event_object = "128"
+                    if (self.global_event_score_vehicle > self.global_event_score_human) and (self.global_event_score_vehicle > self.global_event_score_animal):
+                        self.global_event_object = "256"
+                    if (self.global_event_score_animal > self.global_event_score_human) and (self.global_event_score_animal > self.global_event_score_vehicle):
+                        self.global_event_object = "512"
 
                 # if len(action_array) > 6:
                 #     self.global_event_score_human = action_array[5]
