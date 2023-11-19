@@ -117,6 +117,7 @@ class SecuritySpy:
         self._xmldata = None
         self._base_url = f"https://{self._host}:{self._port}" if self._use_ssl else f"http://{self._host}:{self._port}"
         self._token = b64encode(bytes(f"{self._username}:{self._password}", "utf-8")).decode()
+        self._ws_subscriptions = []
         self._ws_stream = None
         self._ws_task:asyncio.Task | None = None
         self._ws_session = None
@@ -188,6 +189,20 @@ class SecuritySpy:
             return
 
         return
+
+
+    def subscribe_websocket(self, ws_callback):
+        """Subscribe to websocket events.
+        Return a callback that will unsubscribe.
+        """
+
+        def _unsub_ws_callback():
+            self._ws_subscriptions.remove(ws_callback)
+
+        _LOGGER.debug("Adding subscription: %s", ws_callback)
+        self._ws_subscriptions.append(ws_callback)
+        return _unsub_ws_callback
+
 #########################################
 # INFORMATION FUNCTIONS
 #########################################
