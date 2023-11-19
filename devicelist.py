@@ -1,3 +1,8 @@
+from __future__ import annotations
+
+from dotenv import load_dotenv
+import os
+
 from pysecspy.secspy_server import SecSpyServer
 from aiohttp import ClientSession
 import asyncio
@@ -7,10 +12,11 @@ import json
 
 _LOGGER = logging.getLogger(__name__)
 
-USERNAME = "YOUR_USERNAME"
-PASSWORD = "YOUR_PASSWORD"
-IPADDRESS = "YOUR_IP_ADDRESS"
-PORT = 8000
+load_dotenv()
+username = os.getenv("USERNAME")
+password = os.getenv("PASSWORD")
+ipaddress = os.getenv("IPADDRESS")
+port = os.getenv("PORT")
 
 async def devicedata():
 
@@ -21,14 +27,14 @@ async def devicedata():
     # Log in to Unifi Protect
     secspy = SecSpyServer(
         session,
-        IPADDRESS,
-        PORT,
-        USERNAME,
-        PASSWORD,
+        ipaddress,
+        port,
+        username,
+        password,
     )
 
     # image = await secspy.get_snapshot_image("0")
-    
+
     data = await secspy.update(True)
     print(json.dumps(data, indent=1))
 

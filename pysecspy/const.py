@@ -1,4 +1,5 @@
 """Constant definitions for SecSpy Wrapper."""
+from __future__ import annotations
 
 DEVICE_UPDATE_INTERVAL_SECONDS = 60
 WEBSOCKET_CHECK_INTERVAL_SECONDS = 120

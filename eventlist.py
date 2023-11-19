@@ -35,7 +35,7 @@ async def devicedata():
     await secspy.update()
     unsub = secspy.subscribe_websocket(subscriber)
 
-    for i in range(15000):
+    for i in range(150000):
         await asyncio.sleep(1)
 
     # Close the Session
