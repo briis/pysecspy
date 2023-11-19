@@ -7,11 +7,13 @@ from __future__ import annotations
 from dotenv import load_dotenv
 import os
 
-from pysecspy import SecSpyServer
+from pysecspy import (
+    SecuritySpy,
+    SecSpyServerData,
+)
 import aiohttp
 import asyncio
 import logging
-import json
 import time
 
 
@@ -30,11 +32,12 @@ async def main() -> None:
     port = os.getenv("PORT")
 
     session = aiohttp.ClientSession()
-    secspy = SecSpyServer(session=session, host=ipaddress, port=port,username=username,password=password)
+    secspy = SecuritySpy(session=session, host=ipaddress, port=port,username=username,password=password)
 
     try:
-        data = await secspy.update(True)
-        print(json.dumps(data, indent=1))
+        await secspy.start_listening()
+        await asyncio.sleep(15)
+        await secspy.stop_listening()
 
     except Exception as err:
         print(err)

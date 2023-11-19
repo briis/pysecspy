@@ -11,6 +11,21 @@ from typing import Any
 from base64 import b64encode
 
 import aiohttp
+import asyncio
+
+from .const import (
+    CAMERA_MESSAGES,
+    DEFAULT_SNAPSHOT_HEIGHT,
+    DEFAULT_SNAPSHOT_WIDTH,
+    DEVICE_UPDATE_INTERVAL_SECONDS,
+    EVENT_MESSAGES,
+    RECORDING_TYPE_ACTION,
+    RECORDING_TYPE_CONTINUOUS,
+    RECORDING_TYPE_MOTION,
+    SERVER_ID,
+    SERVER_NAME,
+    WEBSOCKET_CHECK_INTERVAL_SECONDS,
+)
 
 from .data import (
     SecSpyServerData,
@@ -47,7 +62,7 @@ class SecuritySpyAPI(SecuritySpyAPIBase):
         """Init the API with or without session."""
         self.session = None
 
-    async def async_api_request(self, url: str) -> dict[str, Any]:
+    async def async_api_request(self, url: str, process_json: bool = True) -> dict[str, Any]:
         """Get data from SecuritySpy API."""
 
         _LOGGER.debug("URL CALLED: %s", url)
@@ -64,14 +79,18 @@ class SecuritySpyAPI(SecuritySpyAPIBase):
                 raise RequestError(
                     f"Requesting data failed: {response.status} - Reason: {response.reason}"
                 )
-            data = await response.text()
-            if is_new_session:
-                await self.session.close()
+            if process_json:
+                data = await response.text()
+                if is_new_session:
+                    await self.session.close()
 
-            json_raw = xmltodict.parse(data)
-            json_response = json.loads(json.dumps(json_raw))
+                json_raw = xmltodict.parse(data)
+                json_response = json.loads(json.dumps(json_raw))
 
-            return json_response
+                return json_response
+
+            raw_data = await response.read()
+            return raw_data
 
 class SecuritySpy:
     """Class that uses the SecuritySpy HTTP Webserver to retrieve data."""
@@ -98,9 +117,80 @@ class SecuritySpy:
         self._xmldata = None
         self._base_url = f"https://{self._host}:{self._port}" if self._use_ssl else f"http://{self._host}:{self._port}"
         self._token = b64encode(bytes(f"{self._username}:{self._password}", "utf-8")).decode()
+        self._ws_stream = None
+        self._ws_task:asyncio.Task | None = None
+        self._ws_session = None
 
         if session:
             self._api.session = session
+
+
+    @property
+    def is_listening(self) -> bool:
+        """Return if the client is listening for messages."""
+        return self._ws_task is not None
+
+#########################################
+# EVENT STREAM FUNCTIONS
+#########################################
+
+    async def start_listening(self) -> None:
+        """Connect the Webserver and start listening for messages."""
+        if self._ws_task is not None:
+            return
+
+        event_url = f"{self._base_url}/eventStream?version=3&format=multipart&auth={self._token}"
+        timeout = aiohttp.ClientTimeout()
+        if not self._ws_session:
+            self._ws_session = aiohttp.ClientSession(timeout=timeout)
+
+        try:
+            self._ws_stream = await self._ws_session.request("get", url=event_url)
+        except aiohttp.client.ClientConnectionError:
+            return
+        except Exception as uerr:
+            _LOGGER.debug("STREAM: Unhandled error: %s", uerr)
+            return
+
+        self._ws_task = asyncio.ensure_future(self._start_event_streamer())
+
+    async def stop_listening(self) -> None:
+        """Disconnect the webserver."""
+        if self._ws_task is None:
+            return
+
+        if self._ws_session is not None and not self._ws_session.closed:
+            await self._ws_session.close()
+
+        self._ws_task.cancel()
+        try:
+            await self._ws_task
+        except asyncio.CancelledError:
+            pass
+        finally:
+            self._ws_task = None
+            _LOGGER("STREAM: Stopped listening")
+
+    async def _start_event_streamer(self) -> None:
+        """Start the Webserver stream listener"""
+        assert self._ws_session
+        while not self._ws_session.closed:
+            async for msg in self._ws_stream.content:
+                data = msg.decode("UTF-8").strip()
+                self._process_message(data)
+
+    def _process_message(self, data: str) -> None:
+        try:
+            if data[:14].isnumeric():
+                _LOGGER.debug(data)
+        except Exception as err:
+            _LOGGER.exception("STREAM: Error processing stream. Error: %s", err)
+            return
+
+        return
+#########################################
+# INFORMATION FUNCTIONS
+#########################################
 
     async def get_server_information(self) -> list[SecSpyServerData]:
         """Return list of Server data."""
@@ -108,6 +198,30 @@ class SecuritySpy:
         xml_data = await self._api.async_api_request(api_url)
 
         return _get_server_information(xml_data)
+
+#########################################
+# HOME ASSISTANT SERVICES
+#########################################
+
+    async def get_snapshot_image(self, camera_id: str, width: int | None = None, height: int | None = None) -> bytes:
+        """Return Snapshot image from the specified Camera."""
+        image_width = width or DEFAULT_SNAPSHOT_WIDTH
+        image_height = height or DEFAULT_SNAPSHOT_HEIGHT
+
+        api_url = f"{self._base_url}/image?cameraNum={camera_id}&width={image_width}&height={image_height}&quality=75&auth={self._token}"
+        return await self._api.async_api_request(api_url, False)
+
+    async def get_latest_motion_recording(self, camera_id: str) -> bytes:
+        """Return the latest motion recording file."""
+
+        # Get the latest file name
+        file_url = f"{self._base_url}/download?cameraNum={camera_id}&mcFilesCheck=1&ageText=1&results=1&format=xml&auth={self._token}"
+        json_data = await self._api.async_api_request(file_url)
+        download_url = json_data["feed"]["entry"]["link"]["@href"]
+
+        # Retrieve the file
+        api_url = f"{self._base_url}/{download_url}?auth={self._token}"
+        return await self._api.async_api_request(api_url, False)
 
 #########################################
 # DATA PROCESSING
