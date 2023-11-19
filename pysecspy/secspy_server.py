@@ -1,4 +1,6 @@
 """Module to communicate with the SecuritySpy API."""
+from __future__ import annotations
+
 import asyncio
 import json as pjson
 import logging
@@ -595,7 +597,7 @@ class SecSpyServer:
                     self.global_event_score_vehicle = action_array[7]
                     self.global_event_score_animal = action_array[9]
                     self.global_event_object = None
-                except:
+                except Exception:
                     self.global_event_score_animal = 0
                 finally:
                     # Set the Event Object to the highest score
