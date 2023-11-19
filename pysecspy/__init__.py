@@ -8,6 +8,10 @@ from pysecspy.errors import (
     ResultError,
     SecuritySpyError,
 )
+from pysecspy.secspy import SecuritySpy
+from pysecspy.data import (
+    SecSpyServerData,
+)
 
 __title__ = "pysecspy"
 __version__ = "2.0.0"

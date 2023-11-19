@@ -6,7 +6,6 @@ import json as pjson
 import logging
 import time
 from base64 import b64encode
-from typing import Optional
 
 import aiohttp
 import xmltodict
@@ -55,6 +54,7 @@ class SecSpyServer:
         min_classify_score: int = 50,
         use_ssl: bool = False,
     ):
+        """Return data from SecuritySpy Server."""
         self._host = host
         self._port = port
         self._username = username
@@ -67,6 +67,7 @@ class SecSpyServer:
         self._token = b64encode(
             bytes(f"{self._username}:{self._password}", "utf-8")
         ).decode()
+        _LOGGER.debug(self._token)
         self.headers = {"Content-Type": "text/xml"}
         self._last_device_update_time = 0
         self._last_websocket_check = 0
@@ -96,11 +97,11 @@ class SecSpyServer:
 
     @property
     def devices(self):
-        """ Returns a JSON formatted list of Devices. """
+        """Returns a JSON formatted list of Devices."""
         return self._processed_data
 
     async def update(self, force_camera_update=False) -> dict:
-        """Updates the status of devices."""
+        """Update status of devices."""
 
         current_time = time.time()
         device_update = False
@@ -210,11 +211,11 @@ class SecSpyServer:
         return await self._get_server_information()[SERVER_ID]
 
     async def get_server_information(self):
-        """Returns a Server Information for this NVR."""
+        """Return Server Information for this NVR."""
         return await self._get_server_information()
 
-    async def get_snapshot_image(self, camera_id: str, width: Optional[int] = None, height: Optional[int] = None) -> bytes:
-        """ Returns a Snapshot image from the specified Camera. """
+    async def get_snapshot_image(self, camera_id: str, width: int | None = None, height: int | None = None) -> bytes:
+        """Return Snapshot image from the specified Camera."""
         image_width = width or DEFAULT_SNAPSHOT_WIDTH
         image_height = height or DEFAULT_SNAPSHOT_HEIGHT
 
@@ -232,7 +233,7 @@ class SecSpyServer:
         return await response.read()
 
     async def get_latest_motion_recording(self, camera_id: str) -> bytes:
-        """ Returns the latest motion recording file. """
+        """Returns the latest motion recording file."""
 
         # Get the latest file name
         file_uri = f"{self._base_url}/download?cameraNum={camera_id}&mcFilesCheck=1&ageText=1&results=1&format=xml&auth={self._token}"
@@ -266,7 +267,7 @@ class SecSpyServer:
 
     async def set_arm_mode(self, camera_id: str, mode: str, enabled: bool) -> bool:
         """Sets the camera arming mode .
-        Valid inputs for mode: action, on_motion, continuous. Valid input for value is True or False
+        Valid inputs for mode: action, on_motion, continuous. Valid input for value is True or False.
         """
 
         schedule = 1 if enabled else 0
@@ -301,7 +302,7 @@ class SecSpyServer:
     async def enable_schedule_preset(self, schedule_id: str) -> bool:
         """Enables a schedule preset.
         Valid inputs for schedule_id is a valid preset id
-        Format: setPreset?id=X
+        Format: setPreset?id=X.
         """
 
         cam_uri = f"{self._base_url}/setPreset?id={schedule_id}&auth={self._token}"
@@ -336,7 +337,7 @@ class SecSpyServer:
 
     async def enable_camera(self, camera_id: str, enabled: bool) -> bool:
         """Enables or disables the camera.
-        Valid input for enabled is True or False
+        Valid input for enabled is True or False.
         """
 
         _enable = 1 if enabled else 0
@@ -363,12 +364,7 @@ class SecSpyServer:
         cameras = []
         if not isinstance(
             items,
-            (
-                frozenset,
-                list,
-                set,
-                tuple,
-            ),
+            frozenset | list | set | tuple,
         ):
             cameras.append(items)
         else:
