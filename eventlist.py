@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dotenv import load_dotenv
 import os
+"""Test program for the event functions."""
 
 from pysecspy.secspy_server import SecSpyServer
 from aiohttp import ClientSession

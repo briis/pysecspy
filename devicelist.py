@@ -1,48 +1,49 @@
+"""Test program to test if the basic information and device data can be retrieved.
+
+Create a .env file add values for USERNAME, PASSWORD, IP_ADDRESS and PORT to the file.
+"""
 from __future__ import annotations
 
 from dotenv import load_dotenv
 import os
 
-from pysecspy.secspy_server import SecSpyServer
-from aiohttp import ClientSession
+from pysecspy import SecSpyServer
+import aiohttp
 import asyncio
 import logging
 import json
+import time
 
 
 _LOGGER = logging.getLogger(__name__)
 
-load_dotenv()
-username = os.getenv("USERNAME")
-password = os.getenv("PASSWORD")
-ipaddress = os.getenv("IPADDRESS")
-port = os.getenv("PORT")
-
-async def devicedata():
+async def main() -> None:
+    """Async test module."""
 
     logging.basicConfig(level=logging.DEBUG)
+    start = time.time()
 
-    session = ClientSession()
+    load_dotenv()
+    username = os.getenv("USERNAME")
+    password = os.getenv("PASSWORD")
+    ipaddress = os.getenv("IPADDRESS")
+    port = os.getenv("PORT")
 
-    # Log in to Unifi Protect
-    secspy = SecSpyServer(
-        session,
-        ipaddress,
-        port,
-        username,
-        password,
-    )
+    session = aiohttp.ClientSession()
+    secspy = SecSpyServer(session=session, host=ipaddress, port=port,username=username,password=password)
 
-    # image = await secspy.get_snapshot_image("0")
+    try:
+        data = await secspy.update(True)
+        print(json.dumps(data, indent=1))
 
-    data = await secspy.update(True)
-    print(json.dumps(data, indent=1))
+    except Exception as err:
+        print(err)
 
-    # await secspy.set_camera_recording("1", "on_motion")
+    if session is not None:
+        await session.close()
 
-    # Close the Session
-    await session.close()
+    end = time.time()
 
-loop = asyncio.get_event_loop()
-loop.run_until_complete(devicedata())
-loop.close()
+    _LOGGER.info("Execution time: %s seconds", end - start)
+
+asyncio.run(main())
