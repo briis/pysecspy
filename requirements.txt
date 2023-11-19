@@ -12,3 +12,4 @@ python-dotenv
 requests
 requests-toolbelt
 ruff
+xmltodict
