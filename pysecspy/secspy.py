@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import abc
+import datetime
 import time
 import json
 import logging
@@ -335,9 +336,74 @@ class SecuritySpy:
                 )
             )
 
-    def _process_camera_data(self,server_id: str, server_credentials: str, camera, include_events: bool):
-        """Process the Camera json data."""
-
     def _update_device(self, device_id, processed_update):
         """Update internal state of a device."""
         self._processed_data.setdefault(device_id, {}).update(processed_update)
+
+    def _process_camera_data(self,server_id: str, server_credentials: str, camera, include_events: bool):
+        """Process the Camera json data."""
+        _camera_id = camera["number"]
+        _camera_online = camera["connected"] == "yes"
+        _camera_enabled = camera.get("enabled")
+        _camera_ip_address = "Local" if camera["devicetype"] == "Local" else camera.get("address")
+        # Recording Mode
+        if camera.get("recordingSettings_A") is not None:
+            _camera_recmode_a = camera.get("recordingSettings_A")
+        else:
+            _camera_recmode_a = camera["mode-a"] == "armed"
+        if camera.get("recordingSettings_C") is not None:
+            _camera_recmode_c = camera.get("recordingSettings_C")
+        else:
+            _camera_recmode_c = camera["mode-c"] == "armed"
+        if camera.get("recordingSettings_M") is not None:
+            _camera_recmode_m = camera.get("recordingSettings_M")
+        else:
+            _camera_recmode_m = camera["mode-m"] == "armed"
+        # Live Image
+        base_url = f"{server_credentials['host']}:{server_credentials['port']}"
+        base_stream = f"rtsp://{base_url}/stream?auth={server_credentials['token']}"
+        _camera_live_stream = f"{base_stream}&cameraNum={camera_id}&codec=h264"
+        # Jpeg Image
+        image_width = str(camera["width"])
+        image_height = str(camera["height"])
+        _camera_latest_image = f"http://{base_url}/image?auth={server_credentials['token']}&cameraNum={camera_id}&width={image_width}&height={image_height}&quality=75"
+        # PTZ
+        _camera_ptz_capabilities = camera.get("ptzcapabilities")
+        _camera_preset_list = []
+        if _camera_ptz_capabilities is not None and int(_camera_ptz_capabilities) > 0:
+            # Build a list of PTZ Presets
+            for preset in range(1, 10):
+                if camera.get(f"preset-name-{preset}") is not None:
+                    _camera_preset_list.append(camera.get(f"preset-name-{preset}"))
+
+        camera_update = {
+            "name": camera["name"],
+            "type": "camera",
+            "model": camera["devicename"],
+            "online": _camera_online,
+            "enabled": _camera_enabled,
+            "recording_mode_a": _camera_recmode_a,
+            "recording_mode_c": _camera_recmode_c,
+            "recording_mode_m": _camera_recmode_m,
+            "ip_address": _camera_ip_address,
+            "live_stream": _camera_live_stream,
+            "latest_image": _camera_latest_image,
+            "image_width": image_width,
+            "image_height": image_height,
+            "fps": camera["current-fps"],
+            "video_format": camera["video-format"],
+            "ptz_capabilities": _camera_ptz_capabilities,
+            "ptz_presets": _camera_preset_list,
+        }
+
+        if server_id is not None:
+            camera_update["server_id"] = server_id
+
+        if include_events:
+            if camera.get("timesincelastmotion", None) is not None:
+                last_update = int(time.time()) + int(camera["timesincelastmotion"])
+                camera_update["last_motion"] = datetime.datetime.fromtimestamp(last_update / 1000).strftime("%Y-%m-%d %H:%M:%S")
+            else:
+                camera_update["last_motion"] = None
+
+        return camera_update
