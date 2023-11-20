@@ -35,8 +35,10 @@ async def main() -> None:
     secspy = SecuritySpy(session=session, host=ipaddress, port=port,username=username,password=password)
 
     try:
-        await secspy.start_listening()
-        await asyncio.sleep(15)
+        await secspy.update()
+        cameras = secspy.cameras
+        print(cameras)
+        await asyncio.sleep(30)
         await secspy.stop_listening()
 
     except Exception as err:

@@ -15,12 +15,20 @@ import aiohttp
 import asyncio
 
 from .const import (
+    CAMERA_KEYS,
     CAMERA_MESSAGES,
     DEFAULT_SNAPSHOT_HEIGHT,
     DEFAULT_SNAPSHOT_WIDTH,
     DEVICE_UPDATE_INTERVAL_SECONDS,
+    EVENT_DISCONNECT,
+    EVENT_LENGTH_PRECISION,
+    EVENT_MOTION,
     EVENT_MESSAGES,
+    EVENT_SMART_DETECT_ZONE,
+    KEY_CAMERA,
+    KEY_EVENT,
     PROCESSED_EVENT_EMPTY,
+    REASON_CODES,
     RECORDING_TYPE_ACTION,
     RECORDING_TYPE_CONTINUOUS,
     RECORDING_TYPE_MOTION,
@@ -130,6 +138,10 @@ class SecuritySpy:
 
         self._device_state_machine = SecspyDeviceStateMachine()
         self._event_state_machine = SecspyEventStateMachine()
+        self._global_event_score_human = 0
+        self._global_event_score_vehicle = 0
+        self._global_event_score_animal = 0
+        self._global_event_object = None
         self._is_first_update = True
         self._last_device_update_time = 0
         self._last_websocket_check = 0
@@ -142,6 +154,10 @@ class SecuritySpy:
         if session:
             self._api.session = session
 
+    @property
+    def cameras(self) -> dict:
+        """Return JSOn list of cameras and properties."""
+        return self._processed_data
 
     @property
     def is_listening(self) -> bool:
@@ -149,7 +165,7 @@ class SecuritySpy:
         return self._ws_task is not None
 
 #########################################
-# EVENT FUNCTIONS
+# MAIN LOOP FUNCTIONS
 #########################################
     async def update(self, force_camera_update: bool = False) -> dict:
         """Update state of devices."""
@@ -218,12 +234,174 @@ class SecuritySpy:
     def _process_message(self, data: str) -> None:
         try:
             if data[:14].isnumeric():
-                _LOGGER.debug(data)
+                action_array = data.split(" ")
+                action_key = action_array[3]
+                model_key = None
+                if action_key in CAMERA_MESSAGES:
+                    model_key = KEY_CAMERA
+                if action_key in EVENT_MESSAGES:
+                    model_key = KEY_EVENT
+                if model_key is None:
+                    return
+
+                action_json = {}
+                data_json = {}
+
+                # Update when camera settings change
+                if model_key == KEY_CAMERA:
+                    action_json = {
+                        "modelkey": KEY_CAMERA,
+                        "id": action_array[2],
+                    }
+                    if action_key == "ARM_A":
+                        data_json = {"recordingSettings_A": True}
+                    if action_key == "ARM_C":
+                        data_json = {"recordingSettings_C": True}
+                    if action_key == "ARM_M":
+                        data_json = {"recordingSettings_M": True}
+                    if action_key == "DISARM_A":
+                        data_json = {"recordingSettings_A": False}
+                    if action_key == "DISARM_C":
+                        data_json = {"recordingSettings_C": False}
+                    if action_key == "DISARM_M":
+                        data_json = {"recordingSettings_M": False}
+
+                    self._process_camera_updates(action_json, data_json)
+                    return
+
+                # Update if a new event occurs
+                if model_key == KEY_EVENT:
+                    if action_key == "ONLINE":
+                        data_json = {
+                            "type": "online",
+                            "camera": action_array[2],
+                            "isOnline": True,
+                        }
+                        action_json = {
+                            "modelKey": KEY_EVENT,
+                            "action": "add",
+                            "id": action_array[2],
+                        }
+                    if action_key == "OFFLINE":
+                        data_json = {
+                            "type": "online",
+                            "camera": action_array[2],
+                            "isOnline": False,
+                        }
+                        action_json = {
+                            "modelKey": KEY_EVENT,
+                            "action": "add",
+                            "id": action_array[2],
+                        }
+
+                    if action_key == "TRIGGER_M":
+                        self._global_event_object = action_array[4]
+                        data_json = {
+                            "type": "motion",
+                            "start": action_array[0],
+                            "camera": action_array[2],
+                            "reason": self._global_event_object,
+                            "event_score_human": self._global_event_score_human,
+                            "event_score_vehicle": self._global_event_score_vehicle,
+                            "isMotionDetected": True,
+                            "isOnline": True,
+                        }
+                        action_json = {
+                            "modelKey": KEY_EVENT,
+                            "action": "add",
+                            "id": action_array[2],
+                        }
+
+                    if action_key == "MOTION":
+                        data_json = {
+                            "type": "motion",
+                            "start": action_array[0],
+                            "camera": action_array[2],
+                            "reason": self._global_event_object,
+                            "event_score_human": self._global_event_score_human,
+                            "event_score_vehicle": self._global_event_score_vehicle,
+                            "isMotionDetected": True,
+                            "isOnline": True,
+                        }
+                        action_json = {
+                            "modelKey": KEY_EVENT,
+                            "action": "add",
+                            "id": action_array[2],
+                        }
+
+                    if action_key == "MOTION_END":
+                        self._global_event_score_human = 0
+                        self._global_event_score_vehicle = 0
+                        self._global_event_object = None
+                        data_json = {
+                            "type": "motion",
+                            "end": action_array[0],
+                            "camera": action_array[2],
+                            "isMotionDetected": False,
+                            "reason": self._global_event_object,
+                            "event_score_human": self._global_event_score_human,
+                            "event_score_vehicle": self._global_event_score_vehicle,
+                            "isOnline": True,
+                        }
+                        action_json = {
+                            "modelKey": KEY_EVENT,
+                            "action": "update",
+                            "id": action_array[2],
+                        }
+
+                    if action_key == "CLASSIFY":
+                        _LOGGER.debug("CLASSIFY: %s", action_array)
+                        try:
+                            self._global_event_score_human = action_array[5]
+                            self._global_event_score_vehicle = action_array[7]
+                            self._global_event_score_animal = action_array[9]
+                            self._global_event_object = None
+                        except Exception:
+                            self._global_event_score_animal = 0
+                        finally:
+                            # Set the Event Object to the highest score
+                            if (self._global_event_score_human > self._global_event_score_vehicle) and (self._global_event_score_human > self._global_event_score_animal):
+                                self._global_event_object = "128"
+                            if (self._global_event_score_vehicle > self._global_event_score_human) and (self._global_event_score_vehicle > self._global_event_score_animal):
+                                self._global_event_object = "256"
+                            if (self._global_event_score_animal > self._global_event_score_human) and (self._global_event_score_animal > self._global_event_score_vehicle):
+                                self._global_event_object = "512"
+
+                        data_json = {
+                            "type": "motion",
+                            "start": action_array[0],
+                            "camera": action_array[2],
+                            "reason": self._global_event_object,
+                            "event_score_human": self._global_event_score_human,
+                            "event_score_vehicle": self._global_event_score_vehicle,
+                            "event_score_animal": self._global_event_score_animal,
+                            "isOnline": True,
+                        }
+                        action_json = {
+                            "modelKey": KEY_EVENT,
+                            "action": "add",
+                            "id": action_array[2],
+                        }
+                    self._process_event_updates(action_json, data_json)
+                    return
+
+
         except Exception as err:
             _LOGGER.exception("STREAM: Error processing stream. Error: %s", err)
             return
 
         return
+
+    def _process_timestamp(self, time_stamp: int):
+        """Return timestamp formatted."""
+        return datetime.datetime.strptime(time_stamp, "%Y%m%d%H%M%S").strftime("%Y-%m-%d %H:%M:%S")
+
+    def fire_event(self, device_id, processed_event):
+        """Callback and event to the subscribers and update data."""
+        self._update_device(device_id, processed_event)
+
+        for subscriber in self._ws_subscriptions:
+            subscriber({device_id: self._processed_data[device_id]})
 
 
     def subscribe_websocket(self, ws_callback):
@@ -237,6 +415,257 @@ class SecuritySpy:
         _LOGGER.debug("Adding subscription: %s", ws_callback)
         self._ws_subscriptions.append(ws_callback)
         return _unsub_ws_callback
+
+#########################################
+# CAMERA EVENT FUNCTIONS
+#########################################
+
+    def _process_camera_updates(self, action_json, data_json) -> None:
+        """Process a decoded Camera Message"""
+        camera_id, processed_camera = self._camera_from_updates(
+            self._server_credential,
+            action_json,
+            data_json,
+        )
+
+        if camera_id is None:
+            return
+
+        if not processed_camera["recording_mode_m"]:
+            processed_event = self._camera_event_from_updates(action_json, data_json)
+            if processed_event is not None:
+                _LOGGER.debug("Processed camera motion event: %s", processed_event)
+                processed_camera.update(processed_event)
+
+        if not processed_camera["recording_mode_c"]:
+            processed_event = self._camera_event_from_updates(action_json, data_json)
+            if processed_event is not None:
+                _LOGGER.debug("Processed camera motion event: %s", processed_event)
+                processed_camera.update(processed_event)
+
+        if not processed_camera["recording_mode_a"]:
+            processed_event = self._camera_event_from_updates(action_json, data_json)
+            if processed_event is not None:
+                _LOGGER.debug("Processed camera motion event: %s", processed_event)
+                processed_camera.update(processed_event)
+
+        self.fire_event(camera_id, processed_camera)
+
+    def _camera_from_updates(self, server_credentials: str, action_json, data_json) -> None:
+        """Convert camera data stream to internal format."""
+        if action_json["modelKey"] != KEY_CAMERA:
+            raise ValueError("Trigger must be a Camera")
+
+        camera_id = action_json["id"]
+        if not self._device_state_machine.has_device(camera_id):
+            _LOGGER.debug("Skipping non-adopted camera: %s", data_json)
+            return None, None
+
+        camera = self._device_state_machine.update(camera_id, data_json)
+        if data_json.keys().isdisjoint(CAMERA_KEYS):
+            _LOGGER.debug("Skipping camera data: %s", data_json)
+            return None, None
+
+        _LOGGER.debug("Processing camera %s ...", camera)
+        processed_camera = self._process_camera_data(None, server_credentials, camera, True)
+
+        return camera_id, processed_camera
+
+    def _camera_event_from_updates(self, action_json, data_json) -> None:
+        """Create processed event from the camera model."""
+
+        if "isMotionDetected" not in data_json and "timesincelastmotion" not in data_json and "isOnline" not in data_json:
+            return None
+
+        camera_id = action_json["id"]
+        start_time = None
+        event_length = 0
+        event_on = False
+        is_online = data_json.get("isOnline")
+
+        last_motion = int(time.time()) + int(data_json["timesincelastmotion"])
+        is_motion_detected = data_json.get("isMotionDetected")
+
+        if is_motion_detected is None:
+            start_time = self._device_state_machine.get_motion_detected_time(camera_id)
+            event_on = True
+        else:
+            if is_motion_detected:
+                event_on = True
+                start_time = last_motion
+                self._device_state_machine.set_motion_detected_time(camera_id, start_time)
+            else:
+                start_time = self._device_state_machine.get_motion_detected_time(camera_id)
+                self._device_state_machine.set_motion_detected_time(camera_id, None)
+                if last_motion is None:
+                    last_motion = round(time.time() * 1000)
+
+        if start_time is not None and last_motion is not None:
+            event_length = round((float(last_motion) - float(start_time)) / 1000, EVENT_LENGTH_PRECISION)
+
+        return {
+            "event_on": event_on,
+            "event_type": "motion",
+            "event_start": start_time,
+            "event_length": event_length,
+            "event_online": is_online,
+        }
+
+
+    def _process_camera_data(self,server_id: str, server_credentials: str, camera, include_events: bool):
+        """Process the Camera json data."""
+        _camera_id = camera["number"]
+        _camera_online = camera["connected"] == "yes"
+        _camera_enabled = camera.get("enabled")
+        _camera_ip_address = "Local" if camera["devicetype"] == "Local" else camera.get("address")
+        # Recording Mode
+        if camera.get("recordingSettings_A") is not None:
+            _camera_recmode_a = camera.get("recordingSettings_A")
+        else:
+            _camera_recmode_a = camera["mode-a"] == "armed"
+        if camera.get("recordingSettings_C") is not None:
+            _camera_recmode_c = camera.get("recordingSettings_C")
+        else:
+            _camera_recmode_c = camera["mode-c"] == "armed"
+        if camera.get("recordingSettings_M") is not None:
+            _camera_recmode_m = camera.get("recordingSettings_M")
+        else:
+            _camera_recmode_m = camera["mode-m"] == "armed"
+        # Live Image
+        base_url = f"{server_credentials['host']}:{server_credentials['port']}"
+        base_stream = f"rtsp://{base_url}/stream?auth={server_credentials['token']}"
+        _camera_live_stream = f"{base_stream}&cameraNum={_camera_id}&codec=h264"
+        # Jpeg Image
+        image_width = str(camera["width"])
+        image_height = str(camera["height"])
+        _camera_latest_image = f"http://{base_url}/image?auth={server_credentials['token']}&cameraNum={_camera_id}&width={image_width}&height={image_height}&quality=75"
+        # PTZ
+        _camera_ptz_capabilities = camera.get("ptzcapabilities")
+        _camera_preset_list = []
+        if _camera_ptz_capabilities is not None and int(_camera_ptz_capabilities) > 0:
+            # Build a list of PTZ Presets
+            for preset in range(1, 10):
+                if camera.get(f"preset-name-{preset}") is not None:
+                    _camera_preset_list.append(camera.get(f"preset-name-{preset}"))
+
+        camera_update = {
+            "name": camera["name"],
+            "type": "camera",
+            "model": camera["devicename"],
+            "online": _camera_online,
+            "enabled": _camera_enabled,
+            "recording_mode_a": _camera_recmode_a,
+            "recording_mode_c": _camera_recmode_c,
+            "recording_mode_m": _camera_recmode_m,
+            "ip_address": _camera_ip_address,
+            "live_stream": _camera_live_stream,
+            "latest_image": _camera_latest_image,
+            "image_width": image_width,
+            "image_height": image_height,
+            "fps": camera["current-fps"],
+            "video_format": camera["video-format"],
+            "ptz_capabilities": _camera_ptz_capabilities,
+            "ptz_presets": _camera_preset_list,
+        }
+
+        if server_id is not None:
+            camera_update["server_id"] = server_id
+
+        if include_events:
+            if camera.get("timesincelastmotion", None) is not None:
+                last_update = int(time.time()) + int(camera["timesincelastmotion"])
+                camera_update["last_motion"] = datetime.datetime.fromtimestamp(last_update / 1000).strftime("%Y-%m-%d %H:%M:%S")
+            else:
+                camera_update["last_motion"] = None
+
+        return camera_update
+
+#########################################
+# MOTION EVENT FUNCTIONS
+#########################################
+    def _process_event_updates(self, action_json, data_json) -> None:
+        """Process a decoded event websocket message."""
+
+        device_id, processed_event = self._event_from_updates(action_json, data_json)
+        if device_id is None:
+            return
+
+        _LOGGER.debug("Procesed event: %s", processed_event)
+
+        self.fire_event(device_id, processed_event)
+
+    def _event_from_updates(self, action_json, data_json) -> None:
+        """Convert event data stream to internal format."""
+        if action_json["modelKey"] != KEY_EVENT:
+            raise ValueError("Trigger must be an event")
+
+        action = action_json["action"]
+        event_id = action_json["id"]
+
+        if action == "add":
+            device_id = data_json.get("camera")
+            if device_id is None:
+                return None, None
+            self._event_state_machine.add(event_id, data_json)
+            event = data_json
+        elif action == "update":
+            event = self._event_state_machine.update(event_id, data_json)
+            if not event:
+                return None, None
+            device_id = event.get("camera")
+        else:
+            raise ValueError("Trigger action must be add or update")
+
+        _LOGGER.debug("Processing Event %s", event)
+        processed_event = self._process_event_data(event)
+
+        return device_id, processed_event
+
+
+    def _process_event_data(self, event):
+        """Convert an event to our format."""
+        start = event.get("start")
+        end = event.get("end")
+        event_type = event.get("type")
+        event_reason = event.get("reason")
+        event_online = event.get("isOnline")
+        event_score_human = 0 if not event.get("event_score_human") else event.get("event_score_human")
+        event_score_vehicle = 0 if not event.get("event_score_vehicle") else event.get("event_score_vehicle")
+        event_score_animal = 0 if not event.get("event_score_animal") else event.get("event_score_animal")
+
+        event_length = 0
+        start_time = None
+
+        if start:
+            start_time = self._process_timestamp(start)
+        if end:
+            event_length = round(
+                (float(end) / 1000) - (float(start) / 1000), EVENT_LENGTH_PRECISION
+            )
+
+        event_object = (
+            "None" if event_reason not in REASON_CODES else REASON_CODES.get(event_reason)
+        )
+
+        processed_event = {
+            "event_on": False,
+            "event_type": event_type,
+            "event_start": start_time,
+            "event_length": event_length,
+            "event_object": event_object,
+            "event_score_human": event_score_human,
+            "event_score_vehicle": event_score_vehicle,
+            "event_score_animal": event_score_animal,
+            "event_online": event_online,
+        }
+
+        if event_type in (EVENT_MOTION, EVENT_SMART_DETECT_ZONE):
+            processed_event["last_motion"] = start_time
+            if not end:
+                processed_event["event_on"] = True
+
+        return processed_event
+
 
 #########################################
 # INFORMATION FUNCTIONS
@@ -339,71 +768,3 @@ class SecuritySpy:
     def _update_device(self, device_id, processed_update):
         """Update internal state of a device."""
         self._processed_data.setdefault(device_id, {}).update(processed_update)
-
-    def _process_camera_data(self,server_id: str, server_credentials: str, camera, include_events: bool):
-        """Process the Camera json data."""
-        _camera_id = camera["number"]
-        _camera_online = camera["connected"] == "yes"
-        _camera_enabled = camera.get("enabled")
-        _camera_ip_address = "Local" if camera["devicetype"] == "Local" else camera.get("address")
-        # Recording Mode
-        if camera.get("recordingSettings_A") is not None:
-            _camera_recmode_a = camera.get("recordingSettings_A")
-        else:
-            _camera_recmode_a = camera["mode-a"] == "armed"
-        if camera.get("recordingSettings_C") is not None:
-            _camera_recmode_c = camera.get("recordingSettings_C")
-        else:
-            _camera_recmode_c = camera["mode-c"] == "armed"
-        if camera.get("recordingSettings_M") is not None:
-            _camera_recmode_m = camera.get("recordingSettings_M")
-        else:
-            _camera_recmode_m = camera["mode-m"] == "armed"
-        # Live Image
-        base_url = f"{server_credentials['host']}:{server_credentials['port']}"
-        base_stream = f"rtsp://{base_url}/stream?auth={server_credentials['token']}"
-        _camera_live_stream = f"{base_stream}&cameraNum={camera_id}&codec=h264"
-        # Jpeg Image
-        image_width = str(camera["width"])
-        image_height = str(camera["height"])
-        _camera_latest_image = f"http://{base_url}/image?auth={server_credentials['token']}&cameraNum={camera_id}&width={image_width}&height={image_height}&quality=75"
-        # PTZ
-        _camera_ptz_capabilities = camera.get("ptzcapabilities")
-        _camera_preset_list = []
-        if _camera_ptz_capabilities is not None and int(_camera_ptz_capabilities) > 0:
-            # Build a list of PTZ Presets
-            for preset in range(1, 10):
-                if camera.get(f"preset-name-{preset}") is not None:
-                    _camera_preset_list.append(camera.get(f"preset-name-{preset}"))
-
-        camera_update = {
-            "name": camera["name"],
-            "type": "camera",
-            "model": camera["devicename"],
-            "online": _camera_online,
-            "enabled": _camera_enabled,
-            "recording_mode_a": _camera_recmode_a,
-            "recording_mode_c": _camera_recmode_c,
-            "recording_mode_m": _camera_recmode_m,
-            "ip_address": _camera_ip_address,
-            "live_stream": _camera_live_stream,
-            "latest_image": _camera_latest_image,
-            "image_width": image_width,
-            "image_height": image_height,
-            "fps": camera["current-fps"],
-            "video_format": camera["video-format"],
-            "ptz_capabilities": _camera_ptz_capabilities,
-            "ptz_presets": _camera_preset_list,
-        }
-
-        if server_id is not None:
-            camera_update["server_id"] = server_id
-
-        if include_events:
-            if camera.get("timesincelastmotion", None) is not None:
-                last_update = int(time.time()) + int(camera["timesincelastmotion"])
-                camera_update["last_motion"] = datetime.datetime.fromtimestamp(last_update / 1000).strftime("%Y-%m-%d %H:%M:%S")
-            else:
-                camera_update["last_motion"] = None
-
-        return camera_update
