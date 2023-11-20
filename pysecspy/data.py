@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from typing import Any, Callable
+
+MAX_SUPPORTED_CAMERAS = 256
+MAX_EVENT_HISTORY_IN_STATE_MACHINE = MAX_SUPPORTED_CAMERAS * 2
 
 class SecSpyDevice:
     """SecuritySpy camera device."""
@@ -97,3 +101,64 @@ class SecSpyServerData:
         return self._version
 
 
+
+class SecspyDeviceStateMachine:
+    """A simple state machine for events."""
+
+    def __init__(self):
+        """Init the state machine."""
+        self._devices = {}
+        self._motion_detected_time = {}
+
+    def has_device(self, device_id):
+        """Check to see if a device id is in the state machine."""
+        return device_id in self._devices
+
+    def update(self, device_id, new_json):
+        """Update an device in the state machine."""
+        self._devices.setdefault(device_id, {}).update(new_json)
+        return self._devices[device_id]
+
+    def set_motion_detected_time(self, device_id, timestamp):
+        """Set device motion start detected time."""
+        self._motion_detected_time[device_id] = timestamp
+
+    def get_motion_detected_time(self, device_id):
+        """Get device motion start detected time."""
+        return self._motion_detected_time.get(device_id)
+
+
+class SecspyEventStateMachine:
+    """A simple state machine for cameras."""
+
+    def __init__(self):
+        """Init the state machine."""
+        self._events = FixSizeOrderedDict(max_size=MAX_EVENT_HISTORY_IN_STATE_MACHINE)
+
+    def add(self, event_id, event_json):
+        """Add an event to the state machine."""
+        self._events[event_id] = event_json
+
+    def update(self, event_id, new_event_json):
+        """Update an event in the state machine and return the merged event."""
+        event_json = self._events.get(event_id)
+        if event_json is None:
+            return None
+        event_json.update(new_event_json)
+        return event_json
+
+
+class FixSizeOrderedDict(OrderedDict):
+    """A fixed size ordered dict."""
+
+    def __init__(self, *args, max_size=0, **kwargs):
+        """Create the FixSizeOrderedDict."""
+        self._max_size = max_size
+        super().__init__(*args, **kwargs)
+
+    def __setitem__(self, key, value):
+        """Set an update up to the max size."""
+        OrderedDict.__setitem__(self, key, value)
+        if self._max_size > 0:
+            if len(self) > self._max_size:
+                self.popitem(False)

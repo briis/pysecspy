@@ -18,6 +18,18 @@ DEFAULT_SNAPSHOT_HEIGHT = 1080
 
 EVENT_MESSAGES = ["TRIGGER_M", "MOTION", "CLASSIFY", "MOTION_END", "ONLINE", "OFFLINE"]
 
+PROCESSED_EVENT_EMPTY = {
+    "event_start": None,
+    "event_on": False,
+    "event_type": None,
+    "event_online": True,
+    "event_length": 0,
+    "event_object": None,
+    "event_score_human": 0,
+    "event_score_vehicle": 0,
+    "event_score_animal": 0,
+}
+
 RECORDING_TYPE_ACTION = "action"
 RECORDING_TYPE_MOTION = "on_motion"
 RECORDING_TYPE_CONTINUOUS = "continuous"

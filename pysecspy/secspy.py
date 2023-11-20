@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import abc
-import datetime
+import time
 import json
 import logging
 import xmltodict
@@ -19,6 +19,7 @@ from .const import (
     DEFAULT_SNAPSHOT_WIDTH,
     DEVICE_UPDATE_INTERVAL_SECONDS,
     EVENT_MESSAGES,
+    PROCESSED_EVENT_EMPTY,
     RECORDING_TYPE_ACTION,
     RECORDING_TYPE_CONTINUOUS,
     RECORDING_TYPE_MOTION,
@@ -29,6 +30,8 @@ from .const import (
 
 from .data import (
     SecSpyServerData,
+    SecspyDeviceStateMachine,
+    SecspyEventStateMachine,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -49,7 +52,7 @@ class SecuritySpyAPIBase:
     """Baseclass to use as dependency injection pattern for easier automatic testing."""
 
     @abc.abstractmethod
-    async def async_api_request( self, url: str) -> dict[str, Any]:
+    async def async_api_request( self, url: str, use_ssl: bool = False, process_json: bool = True) -> dict[str, Any]:
         """Override this."""
         raise NotImplementedError(
             "users must define async_api_request to use this base class"
@@ -62,7 +65,7 @@ class SecuritySpyAPI(SecuritySpyAPIBase):
         """Init the API with or without session."""
         self.session = None
 
-    async def async_api_request(self, url: str, process_json: bool = True) -> dict[str, Any]:
+    async def async_api_request(self, url: str, use_ssl: bool = False, process_json: bool = True) -> dict[str, Any]:
         """Get data from SecuritySpy API."""
 
         _LOGGER.debug("URL CALLED: %s", url)
@@ -72,7 +75,8 @@ class SecuritySpyAPI(SecuritySpyAPIBase):
             self.session = aiohttp.ClientSession()
             is_new_session = True
 
-        async with self.session.get(url) as response:
+        headers = {"Content-Type": "text/xml"}
+        async with self.session.get(url, headers=headers, ssl=use_ssl) as response:
             if response.status != 200:
                 if is_new_session:
                     await self.session.close()
@@ -117,11 +121,23 @@ class SecuritySpy:
         self._xmldata = None
         self._base_url = f"https://{self._host}:{self._port}" if self._use_ssl else f"http://{self._host}:{self._port}"
         self._token = b64encode(bytes(f"{self._username}:{self._password}", "utf-8")).decode()
+
         self._ws_subscriptions = []
         self._ws_stream = None
         self._ws_task:asyncio.Task | None = None
         self._ws_session = None
 
+        self._device_state_machine = SecspyDeviceStateMachine()
+        self._event_state_machine = SecspyEventStateMachine()
+        self._is_first_update = True
+        self._last_device_update_time = 0
+        self._last_websocket_check = 0
+        self._processed_data = {}
+        self._server_credential = {
+            "host": self._host,
+            "port": self._port,
+            "token": self._token,
+        }
         if session:
             self._api.session = session
 
@@ -132,8 +148,26 @@ class SecuritySpy:
         return self._ws_task is not None
 
 #########################################
-# EVENT STREAM FUNCTIONS
+# EVENT FUNCTIONS
 #########################################
+    async def update(self, force_camera_update: bool = False) -> dict:
+        """Update state of devices."""
+        current_time = time.time()
+        device_update = False
+        if force_camera_update or (current_time - DEVICE_UPDATE_INTERVAL_SECONDS) > self._last_device_update_time:
+            _LOGGER.debug("Updating devices...")
+            device_update = True
+            await self._get_devices(not self._ws_task)
+            self._last_device_update_time = current_time
+
+        if (current_time - WEBSOCKET_CHECK_INTERVAL_SECONDS) > self._last_websocket_check:
+            _LOGGER.debug("Checking Websocket...")
+            self._last_websocket_check = current_time
+            await self.start_listening()
+
+        if self._ws_task or self._last_websocket_check == current_time:
+            _LOGGER.debug("Skip update, Websokcet is active")
+            return self._processed_data if device_update else {}
 
     async def start_listening(self) -> None:
         """Connect the Webserver and start listening for messages."""
@@ -214,6 +248,16 @@ class SecuritySpy:
 
         return _get_server_information(xml_data)
 
+    async def _get_devices(self, include_events: bool) -> list[SecSpyServerData]:
+        """Return list of Devices."""
+        api_url =  f"{self._base_url}/systemInfo?auth={self._token}"
+        xml_data = await self._api.async_api_request(api_url)
+        server_id = xml_data["system"]["server"]["uuid"]
+
+        self._process_cameras(xml_data, server_id, include_events)
+        self._is_first_update = False
+
+
 #########################################
 # HOME ASSISTANT SERVICES
 #########################################
@@ -224,7 +268,7 @@ class SecuritySpy:
         image_height = height or DEFAULT_SNAPSHOT_HEIGHT
 
         api_url = f"{self._base_url}/image?cameraNum={camera_id}&width={image_width}&height={image_height}&quality=75&auth={self._token}"
-        return await self._api.async_api_request(api_url, False)
+        return await self._api.async_api_request(api_url, self._use_ssl, False)
 
     async def get_latest_motion_recording(self, camera_id: str) -> bytes:
         """Return the latest motion recording file."""
@@ -236,30 +280,64 @@ class SecuritySpy:
 
         # Retrieve the file
         api_url = f"{self._base_url}/{download_url}?auth={self._token}"
-        return await self._api.async_api_request(api_url, False)
+        return await self._api.async_api_request(api_url, self._use_ssl, False)
 
 #########################################
 # DATA PROCESSING
 #########################################
 
-def _get_server_information(api_result) -> list[SecSpyServerData]:
-    """Return formatted server data from API."""
+    def _get_server_information(api_result) -> list[SecSpyServerData]:
+        """Return formatted server data from API."""
 
-    nvr = api_result["system"]["server"]
-    sys_info = api_result["system"]
-    sched_preset = sys_info.get("schedulepresetlist")
-    presets = []
-    if sched_preset is not None:
-        for preset in sched_preset["schedulepreset"]:
-            presets.append(preset)
+        nvr = api_result["system"]["server"]
+        sys_info = api_result["system"]
+        sched_preset = sys_info.get("schedulepresetlist")
+        presets = []
+        if sched_preset is not None:
+            for preset in sched_preset["schedulepreset"]:
+                presets.append(preset)
 
-    server_data = SecSpyServerData(
-        ip_address=nvr["ip1"],
-        name=nvr["server-name"],
-        port=8000,
-        presets=presets,
-        uuid=nvr["uuid"],
-        version=nvr["version"],
-    )
+        server_data = SecSpyServerData(
+            ip_address=nvr["ip1"],
+            name=nvr["server-name"],
+            port=8000,
+            presets=presets,
+            uuid=nvr["uuid"],
+            version=nvr["version"],
+        )
 
-    return server_data
+        return server_data
+
+    def _process_cameras(self, api_result, server_id: str, include_events: bool) -> None:
+        """Process camera data and updates."""
+        items = api_result["system"]["cameralist"]["camera"]
+        cameras = []
+
+        if not isinstance(items, frozenset | list | set | tuple,):
+            cameras.append(items)
+        else:
+            cameras = items
+
+        for camera in cameras:
+            camera_id = camera["number"]
+            _LOGGER.debug("Processing camera id: %s", camera_id)
+            if self._is_first_update:
+                self._update_device(camera_id, PROCESSED_EVENT_EMPTY)
+                camera["enabled"] = True
+            self._device_state_machine.update(camera_id, camera)
+            self._update_device(
+                camera_id,
+                self._process_camera_data(
+                    server_id,
+                    self._server_credential,
+                    camera,
+                    include_events or self._is_first_update
+                )
+            )
+
+    def _process_camera_data(self,server_id: str, server_credentials: str, camera, include_events: bool):
+        """Process the Camera json data."""
+
+    def _update_device(self, device_id, processed_update):
+        """Update internal state of a device."""
+        self._processed_data.setdefault(device_id, {}).update(processed_update)
