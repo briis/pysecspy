@@ -14,10 +14,10 @@ import aiohttp
 import asyncio
 import logging
 import time
-import os
 
 VIDEO_FILE = "data/video.mp4"
 _LOGGER = logging.getLogger(__name__)
+
 
 async def main() -> None:
     """Async test module."""
@@ -32,15 +32,17 @@ async def main() -> None:
     port = os.getenv("PORT")
 
     session = aiohttp.ClientSession()
-    secspy = SecuritySpy(session=session, host=ipaddress, port=port,username=username,password=password)
+    secspy = SecuritySpy(
+        session=session, host=ipaddress, port=port, username=username, password=password
+    )
 
     try:
-       if os.path.isfile(VIDEO_FILE):
-           os.remove(VIDEO_FILE)
+        if os.path.isfile(VIDEO_FILE):
+            os.remove(VIDEO_FILE)
 
-       video = await secspy.get_latest_motion_recording(0)
-       with open(VIDEO_FILE, "wb") as vid_file:
-           vid_file.write(video)
+        video = await secspy.get_latest_motion_recording(0)
+        with open(VIDEO_FILE, "wb") as vid_file:
+            vid_file.write(video)
 
     except Exception as err:
         print(err)
@@ -51,5 +53,6 @@ async def main() -> None:
     end = time.time()
 
     _LOGGER.info("Execution time: %s seconds", end - start)
+
 
 asyncio.run(main())

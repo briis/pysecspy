@@ -42,34 +42,44 @@ from .data import (
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class SecuritySpyError(Exception):
     """Define a base error."""
+
 
 class InvalidCredentials(SecuritySpyError):
     """Define an error related to invalid or missing Credentials."""
 
+
 class RequestError(SecuritySpyError):
     """Define an error related to invalid requests."""
 
+
 class ResultError(SecuritySpyError):
     """Define an error related to the result returned from a request."""
+
 
 class SecuritySpyAPIBase:
     """Baseclass to use as dependency injection pattern for easier automatic testing."""
 
     @abc.abstractmethod
-    async def async_api_request( self, url: str, use_ssl: bool = False, process_json: bool = True) -> dict[str, Any]:
+    async def async_api_request(
+        self, url: str, use_ssl: bool = False, process_json: bool = True
+    ) -> dict[str, Any]:
         """Override this."""
         raise NotImplementedError(
             "users must define async_api_request to use this base class"
         )
 
     @abc.abstractmethod
-    async def async_api_post(self, url: str, post_data:dict[str, Any], use_ssl: bool = False) -> dict[str, Any]:
+    async def async_api_post(
+        self, url: str, post_data: dict[str, Any], use_ssl: bool = False
+    ) -> dict[str, Any]:
         """Override this."""
         raise NotImplementedError(
             "users must define async_api_request to use this base class"
         )
+
 
 class SecuritySpyAPI(SecuritySpyAPIBase):
     """Default implementation for SecuritySpy api."""
@@ -78,7 +88,9 @@ class SecuritySpyAPI(SecuritySpyAPIBase):
         """Init the API with or without session."""
         self.session = None
 
-    async def async_api_request(self, url: str, use_ssl: bool = False, process_json: bool = True) -> dict[str, Any]:
+    async def async_api_request(
+        self, url: str, use_ssl: bool = False, process_json: bool = True
+    ) -> dict[str, Any]:
         """Get data from SecuritySpy API."""
 
         _LOGGER.debug("URL CALLED: %s", url)
@@ -109,7 +121,9 @@ class SecuritySpyAPI(SecuritySpyAPIBase):
             raw_data = await response.read()
             return raw_data
 
-    async def async_api_post(self, url: str, post_data:dict[str, Any], use_ssl: bool = False) -> dict[str, Any]:
+    async def async_api_post(
+        self, url: str, post_data: dict[str, Any], use_ssl: bool = False
+    ) -> dict[str, Any]:
         """Get data from SecuritySpy API."""
 
         _LOGGER.debug("POST URL CALLED: %s", url)
@@ -120,13 +134,16 @@ class SecuritySpyAPI(SecuritySpyAPIBase):
             is_new_session = True
 
         headers = {"Content-Type": "text/xml"}
-        async with self.session.post(url, headers=headers, data=post_data, ssl=use_ssl) as response:
+        async with self.session.post(
+            url, headers=headers, data=post_data, ssl=use_ssl
+        ) as response:
             if response.status != 200:
                 if is_new_session:
                     await self.session.close()
                 raise RequestError(
                     f"Posting data failed: {response.status} - Reason: {response.reason}"
                 )
+
 
 class SecuritySpy:
     """Class that uses the SecuritySpy HTTP Webserver to retrieve data."""
@@ -151,12 +168,18 @@ class SecuritySpy:
         self._min_score = min_classify_score
         self._use_ssl = use_ssl
         self._xmldata = None
-        self._base_url = f"https://{self._host}:{self._port}" if self._use_ssl else f"http://{self._host}:{self._port}"
-        self._token = b64encode(bytes(f"{self._username}:{self._password}", "utf-8")).decode()
+        self._base_url = (
+            f"https://{self._host}:{self._port}"
+            if self._use_ssl
+            else f"http://{self._host}:{self._port}"
+        )
+        self._token = b64encode(
+            bytes(f"{self._username}:{self._password}", "utf-8")
+        ).decode()
 
         self._ws_subscriptions = []
         self._ws_stream = None
-        self._ws_task:asyncio.Task | None = None
+        self._ws_task: asyncio.Task | None = None
         self._ws_session = None
 
         self._device_state_machine = SecspyDeviceStateMachine()
@@ -187,20 +210,26 @@ class SecuritySpy:
         """Return if the client is listening for messages."""
         return self._ws_task is not None
 
-#########################################
-# MAIN LOOP FUNCTIONS
-#########################################
+    #########################################
+    # MAIN LOOP FUNCTIONS
+    #########################################
     async def update(self, force_camera_update: bool = False) -> dict:
         """Update state of devices."""
         current_time = time.time()
         device_update = False
-        if force_camera_update or (current_time - DEVICE_UPDATE_INTERVAL_SECONDS) > self._last_device_update_time:
+        if (
+            force_camera_update
+            or (current_time - DEVICE_UPDATE_INTERVAL_SECONDS)
+            > self._last_device_update_time
+        ):
             _LOGGER.debug("Updating devices...")
             device_update = True
             await self._get_devices(not self._ws_task)
             self._last_device_update_time = current_time
 
-        if (current_time - WEBSOCKET_CHECK_INTERVAL_SECONDS) > self._last_websocket_check:
+        if (
+            current_time - WEBSOCKET_CHECK_INTERVAL_SECONDS
+        ) > self._last_websocket_check:
             _LOGGER.debug("Checking Websocket...")
             self._last_websocket_check = current_time
             await self.start_listening()
@@ -383,11 +412,29 @@ class SecuritySpy:
                             self._global_event_score_animal = 0
                         finally:
                             # Set the Event Object to the highest score
-                            if (self._global_event_score_human > self._global_event_score_vehicle) and (self._global_event_score_human > self._global_event_score_animal):
+                            if (
+                                self._global_event_score_human
+                                > self._global_event_score_vehicle
+                            ) and (
+                                self._global_event_score_human
+                                > self._global_event_score_animal
+                            ):
                                 self._global_event_object = "128"
-                            if (self._global_event_score_vehicle > self._global_event_score_human) and (self._global_event_score_vehicle > self._global_event_score_animal):
+                            if (
+                                self._global_event_score_vehicle
+                                > self._global_event_score_human
+                            ) and (
+                                self._global_event_score_vehicle
+                                > self._global_event_score_animal
+                            ):
                                 self._global_event_object = "256"
-                            if (self._global_event_score_animal > self._global_event_score_human) and (self._global_event_score_animal > self._global_event_score_vehicle):
+                            if (
+                                self._global_event_score_animal
+                                > self._global_event_score_human
+                            ) and (
+                                self._global_event_score_animal
+                                > self._global_event_score_vehicle
+                            ):
                                 self._global_event_object = "512"
 
                         data_json = {
@@ -408,7 +455,6 @@ class SecuritySpy:
                     self._process_event_updates(action_json, data_json)
                     return
 
-
         except Exception as err:
             _LOGGER.exception("STREAM: Error processing stream. Error: %s", err)
             return
@@ -417,7 +463,9 @@ class SecuritySpy:
 
     def _process_timestamp(self, time_stamp: int):
         """Return timestamp formatted."""
-        return datetime.datetime.strptime(time_stamp, "%Y%m%d%H%M%S").strftime("%Y-%m-%d %H:%M:%S")
+        return datetime.datetime.strptime(time_stamp, "%Y%m%d%H%M%S").strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
 
     def fire_event(self, device_id, processed_event):
         """Event callback and update data."""
@@ -426,7 +474,6 @@ class SecuritySpy:
 
         for subscriber in self._ws_subscriptions:
             subscriber({device_id: self._processed_data[device_id]})
-
 
     def subscribe_websocket(self, ws_callback):
         """Subscribe to websocket events.
@@ -441,9 +488,9 @@ class SecuritySpy:
         self._ws_subscriptions.append(ws_callback)
         return _unsub_ws_callback
 
-#########################################
-# CAMERA EVENT FUNCTIONS
-#########################################
+    #########################################
+    # CAMERA EVENT FUNCTIONS
+    #########################################
 
     def _process_camera_updates(self, action_json, data_json) -> None:
         """Process a decoded Camera Message."""
@@ -477,7 +524,9 @@ class SecuritySpy:
 
         self.fire_event(camera_id, processed_camera)
 
-    def _camera_from_updates(self, server_credentials: str, action_json, data_json) -> None:
+    def _camera_from_updates(
+        self, server_credentials: str, action_json, data_json
+    ) -> None:
         """Convert camera data stream to internal format."""
         if action_json["modelKey"] != KEY_CAMERA:
             raise ValueError("Trigger must be a Camera")
@@ -493,14 +542,20 @@ class SecuritySpy:
             return None, None
 
         _LOGGER.debug("Processing camera %s ...", camera)
-        processed_camera = self._process_camera_data(None, server_credentials, camera, True)
+        processed_camera = self._process_camera_data(
+            None, server_credentials, camera, True
+        )
 
         return camera_id, processed_camera
 
     def _camera_event_from_updates(self, action_json, data_json) -> None:
         """Create processed event from the camera model."""
 
-        if "isMotionDetected" not in data_json and "timesincelastmotion" not in data_json and "isOnline" not in data_json:
+        if (
+            "isMotionDetected" not in data_json
+            and "timesincelastmotion" not in data_json
+            and "isOnline" not in data_json
+        ):
             return None
 
         camera_id = action_json["id"]
@@ -519,15 +574,21 @@ class SecuritySpy:
             if is_motion_detected:
                 event_on = True
                 start_time = last_motion
-                self._device_state_machine.set_motion_detected_time(camera_id, start_time)
+                self._device_state_machine.set_motion_detected_time(
+                    camera_id, start_time
+                )
             else:
-                start_time = self._device_state_machine.get_motion_detected_time(camera_id)
+                start_time = self._device_state_machine.get_motion_detected_time(
+                    camera_id
+                )
                 self._device_state_machine.set_motion_detected_time(camera_id, None)
                 if last_motion is None:
                     last_motion = round(time.time() * 1000)
 
         if start_time is not None and last_motion is not None:
-            event_length = round((float(last_motion) - float(start_time)) / 1000, EVENT_LENGTH_PRECISION)
+            event_length = round(
+                (float(last_motion) - float(start_time)) / 1000, EVENT_LENGTH_PRECISION
+            )
 
         return {
             "event_on": event_on,
@@ -537,13 +598,16 @@ class SecuritySpy:
             "event_online": is_online,
         }
 
-
-    def _process_camera_data(self,server_id: str, server_credentials: str, camera, include_events: bool):
+    def _process_camera_data(
+        self, server_id: str, server_credentials: str, camera, include_events: bool
+    ):
         """Process the Camera json data."""
         _camera_id = camera["number"]
         _camera_online = camera["connected"] == "yes"
         _camera_enabled = camera.get("enabled")
-        _camera_ip_address = "Local" if camera["devicetype"] == "Local" else camera.get("address")
+        _camera_ip_address = (
+            "Local" if camera["devicetype"] == "Local" else camera.get("address")
+        )
         # Recording Mode
         if camera.get("recordingSettings_A") is not None:
             _camera_recmode_a = camera.get("recordingSettings_A")
@@ -600,15 +664,17 @@ class SecuritySpy:
         if include_events:
             if camera.get("timesincelastmotion", None) is not None:
                 last_update = int(time.time()) + int(camera["timesincelastmotion"])
-                camera_update["last_motion"] = datetime.datetime.fromtimestamp(last_update / 1000).strftime("%Y-%m-%d %H:%M:%S")
+                camera_update["last_motion"] = datetime.datetime.fromtimestamp(
+                    last_update / 1000
+                ).strftime("%Y-%m-%d %H:%M:%S")
             else:
                 camera_update["last_motion"] = None
 
         return camera_update
 
-#########################################
-# MOTION EVENT FUNCTIONS
-#########################################
+    #########################################
+    # MOTION EVENT FUNCTIONS
+    #########################################
     def _process_event_updates(self, action_json, data_json) -> None:
         """Process a decoded event websocket message."""
 
@@ -647,7 +713,6 @@ class SecuritySpy:
 
         return device_id, processed_event
 
-
     def _process_event_data(self, event):
         """Convert an event to our format."""
         start = event.get("start")
@@ -655,9 +720,19 @@ class SecuritySpy:
         event_type = event.get("type")
         event_reason = event.get("reason")
         event_online = event.get("isOnline")
-        event_score_human = 0 if not event.get("event_score_human") else event.get("event_score_human")
-        event_score_vehicle = 0 if not event.get("event_score_vehicle") else event.get("event_score_vehicle")
-        event_score_animal = 0 if not event.get("event_score_animal") else event.get("event_score_animal")
+        event_score_human = (
+            0 if not event.get("event_score_human") else event.get("event_score_human")
+        )
+        event_score_vehicle = (
+            0
+            if not event.get("event_score_vehicle")
+            else event.get("event_score_vehicle")
+        )
+        event_score_animal = (
+            0
+            if not event.get("event_score_animal")
+            else event.get("event_score_animal")
+        )
 
         event_length = 0
         start_time = None
@@ -670,7 +745,9 @@ class SecuritySpy:
             )
 
         event_object = (
-            "None" if event_reason not in REASON_CODES else REASON_CODES.get(event_reason)
+            "None"
+            if event_reason not in REASON_CODES
+            else REASON_CODES.get(event_reason)
         )
 
         processed_event = {
@@ -692,31 +769,29 @@ class SecuritySpy:
 
         return processed_event
 
-
-#########################################
-# INFORMATION FUNCTIONS
-#########################################
+    #########################################
+    # INFORMATION FUNCTIONS
+    #########################################
 
     async def get_server_information(self) -> list[SecSpyServerData]:
         """Return list of Server data."""
-        api_url =  f"{self._base_url}/systemInfo?auth={self._token}"
+        api_url = f"{self._base_url}/systemInfo?auth={self._token}"
         xml_data = await self._api.async_api_request(api_url)
 
         return self._get_server_information(xml_data)
 
     async def _get_devices(self, include_events: bool) -> list[SecSpyServerData]:
         """Return list of Devices."""
-        api_url =  f"{self._base_url}/systemInfo?auth={self._token}"
+        api_url = f"{self._base_url}/systemInfo?auth={self._token}"
         xml_data = await self._api.async_api_request(api_url)
         server_id = xml_data["system"]["server"]["uuid"]
 
         self._process_cameras(xml_data, server_id, include_events)
         self._is_first_update = False
 
-
-#########################################
-# SETTING FUNCTIONS
-#########################################
+    #########################################
+    # SETTING FUNCTIONS
+    #########################################
 
     async def set_arm_mode(self, camera_id: str, mode: str, enabled: bool) -> bool:
         """Set camera arming mode.
@@ -752,7 +827,9 @@ class SecuritySpy:
 
         return True
 
-    async def set_ptz_preset(self, camera_id: str, preset_id: str, speed: int=50) -> bool:
+    async def set_ptz_preset(
+        self, camera_id: str, preset_id: str, speed: int = 50
+    ) -> bool:
         """Set PTZ Preset."""
 
         api_url = f"{self._base_url}/ptz/command?cameraNum={camera_id}&command={preset_id}&speed={speed}&auth={self._token}"
@@ -767,16 +844,18 @@ class SecuritySpy:
 
         api_url = f"{self._base_url}/camerasettings?auth={self._token}"
         data = f"cameraNum={camera_id}&camEnabledCheck={_enable}&action=save"
-        await self._api.async_api_post(api_url,post_data=data)
+        await self._api.async_api_post(api_url, post_data=data)
 
         self._processed_data[camera_id]["enabled"] = enabled
         return True
 
-#########################################
-# SERVICE CALLS
-#########################################
+    #########################################
+    # SERVICE CALLS
+    #########################################
 
-    async def get_snapshot_image(self, camera_id: str, width: int | None = None, height: int | None = None) -> bytes:
+    async def get_snapshot_image(
+        self, camera_id: str, width: int | None = None, height: int | None = None
+    ) -> bytes:
         """Return Snapshot image from the specified Camera."""
         image_width = width or DEFAULT_SNAPSHOT_WIDTH
         image_height = height or DEFAULT_SNAPSHOT_HEIGHT
@@ -796,11 +875,11 @@ class SecuritySpy:
         api_url = f"{self._base_url}/{download_url}?auth={self._token}"
         return await self._api.async_api_request(api_url, self._use_ssl, False)
 
-#########################################
-# DATA PROCESSING
-#########################################
+    #########################################
+    # DATA PROCESSING
+    #########################################
 
-    def _get_server_information(api_result) -> list[SecSpyServerData]:
+    def _get_server_information(self, api_result) -> list[SecSpyServerData]:
         """Return formatted server data from API."""
 
         nvr = api_result["system"]["server"]
@@ -822,12 +901,17 @@ class SecuritySpy:
 
         return server_data
 
-    def _process_cameras(self, api_result, server_id: str, include_events: bool) -> None:
+    def _process_cameras(
+        self, api_result, server_id: str, include_events: bool
+    ) -> None:
         """Process camera data and updates."""
         items = api_result["system"]["cameralist"]["camera"]
         cameras = []
 
-        if not isinstance(items, frozenset | list | set | tuple,):
+        if not isinstance(
+            items,
+            frozenset | list | set | tuple,
+        ):
             cameras.append(items)
         else:
             cameras = items
@@ -845,8 +929,8 @@ class SecuritySpy:
                     server_id,
                     self._server_credential,
                     camera,
-                    include_events or self._is_first_update
-                )
+                    include_events or self._is_first_update,
+                ),
             )
 
     def _update_device(self, device_id, processed_update):

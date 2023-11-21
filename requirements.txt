@@ -1,7 +1,7 @@
 aiohttp
 black
 coverage
-dotenv
+python-dotenv
 flake8
 mock
 pyflakes

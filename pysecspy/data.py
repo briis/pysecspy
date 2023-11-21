@@ -5,18 +5,19 @@ from __future__ import annotations
 from collections import OrderedDict
 from .const import MAX_EVENT_HISTORY_IN_STATE_MACHINE
 
+
 class SecSpyServerData:
     """Class to hold server information."""
 
     # pylint: disable=R0913, R0902, R0914
     def __init__(
-            self,
-            ip_address: str,
-            name: str,
-            port: int,
-            presets: object,
-            uuid: str,
-            version: str,
+        self,
+        ip_address: str,
+        name: str,
+        port: int,
+        presets: object,
+        uuid: str,
+        version: str,
     ) -> None:
         """Dataset constructor."""
         self._ip_address = ip_address
@@ -55,7 +56,6 @@ class SecSpyServerData:
     def version(self) -> str:
         """SW Version for Server."""
         return self._version
-
 
 
 class SecspyDeviceStateMachine:

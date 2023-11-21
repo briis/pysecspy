@@ -20,6 +20,7 @@ import time
 
 _LOGGER = logging.getLogger(__name__)
 
+
 async def main() -> None:
     """Async test module."""
 
@@ -33,12 +34,14 @@ async def main() -> None:
     port = os.getenv("PORT")
 
     session = aiohttp.ClientSession()
-    secspy = SecuritySpy(session=session, host=ipaddress, port=port,username=username,password=password)
+    secspy = SecuritySpy(
+        session=session, host=ipaddress, port=port, username=username, password=password
+    )
 
     try:
-       image = await secspy.get_snapshot_image(0)
-       im = Image.open(BytesIO(image))
-       im.save('data/result.{im_format}'.format(im_format=im.format))
+        image = await secspy.get_snapshot_image(0)
+        im = Image.open(BytesIO(image))
+        im.save(f"data/snapshot.{im.format}")
 
     except Exception as err:
         print(err)
@@ -49,5 +52,6 @@ async def main() -> None:
     end = time.time()
 
     _LOGGER.info("Execution time: %s seconds", end - start)
+
 
 asyncio.run(main())
