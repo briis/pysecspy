@@ -67,6 +67,13 @@ class SecuritySpyAPIBase:
             "users must define async_api_request to use this base class"
         )
 
+    @abc.abstractmethod
+    async def async_api_post(self, url: str, post_data:dict[str, Any], use_ssl: bool = False) -> dict[str, Any]:
+        """Override this."""
+        raise NotImplementedError(
+            "users must define async_api_request to use this base class"
+        )
+
 class SecuritySpyAPI(SecuritySpyAPIBase):
     """Default implementation for SecuritySpy api."""
 
@@ -104,6 +111,25 @@ class SecuritySpyAPI(SecuritySpyAPIBase):
 
             raw_data = await response.read()
             return raw_data
+
+    async def async_api_post(self, url: str, post_data:dict[str, Any], use_ssl: bool = False) -> dict[str, Any]:
+        """Get data from SecuritySpy API."""
+
+        _LOGGER.debug("POST URL CALLED: %s", url)
+
+        is_new_session = False
+        if self.session is None:
+            self.session = aiohttp.ClientSession()
+            is_new_session = True
+
+        headers = {"Content-Type": "text/xml"}
+        async with self.session.post(url, headers=headers, data=post_data, ssl=use_ssl) as response:
+            if response.status != 200:
+                if is_new_session:
+                    await self.session.close()
+                raise RequestError(
+                    f"Posting data failed: {response.status} - Reason: {response.reason}"
+                )
 
 class SecuritySpy:
     """Class that uses the SecuritySpy HTTP Webserver to retrieve data."""
@@ -689,7 +715,63 @@ class SecuritySpy:
 
 
 #########################################
-# HOME ASSISTANT SERVICES
+# SETTING FUNCTIONS
+#########################################
+
+    async def set_arm_mode(self, camera_id: str, mode: str, enabled: bool) -> bool:
+        """Set camera arming mode.
+        Valid inputs for mode: action, on_motion, continuous.
+        """
+
+        _schedule = int(enabled)
+        if mode in RECORDING_TYPE_ACTION:
+            rec_mode = "A"
+            json_id = "recording_mode_a"
+        if mode in RECORDING_TYPE_MOTION:
+            rec_mode = "M"
+            json_id = "recording_mode_m"
+        if mode in RECORDING_TYPE_CONTINUOUS:
+            rec_mode = "C"
+            json_id = "recording_mode_c"
+
+        api_url = f"{self._base_url}/setSchedule?cameraNum={camera_id}&schedule={_schedule}&override=0&mode={rec_mode}&auth={self._token}"
+        await self._api.async_api_request(api_url, process_json=False)
+
+        self._processed_data[camera_id][json_id] = enabled
+        return True
+
+    async def enable_schedule_preset(self, schedule_id: str) -> bool:
+        """Enables a schedule preset.
+        Valid inputs for schedule_id is a valid preset id.
+        """
+
+        api_url = f"{self._base_url}/setPreset?id={schedule_id}&auth={self._token}"
+        await self._api.async_api_request(api_url, process_json=False)
+
+        return True
+
+    async def set_ptz_preset(self, camera_id: str, preset_id: str, speed: int=50) -> bool:
+        """Set PTZ Preset."""
+
+        api_url = f"{self._base_url}/ptz/command?cameraNum={camera_id}&command={preset_id}&speed={speed}&auth={self._token}"
+        await self._api.async_api_request(api_url, process_json=False)
+
+        return True
+
+    async def enable_camera(self, camera_id: str, enabled: bool) -> bool:
+        """Enables or disables the camera."""
+
+        _enable = int(enabled)
+
+        api_url = f"{self._base_url}/camerasettings?auth={self._token}"
+        data = f"cameraNum={camera_id}&camEnabledCheck={_enable}&action=save"
+        await self._api.async_api_post(api_url,post_data=data)
+
+        self._processed_data[camera_id]["enabled"] = enabled
+        return True
+
+#########################################
+# SERVICE CALLS
 #########################################
 
     async def get_snapshot_image(self, camera_id: str, width: int | None = None, height: int | None = None) -> bytes:
