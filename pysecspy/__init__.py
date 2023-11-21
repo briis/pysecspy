@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from pysecspy.secspy import (
     SecuritySpy,
-    SecuritySpyError,
+    InvalidCredentials,
+    RequestError,
+    ResultError,
 )
 from pysecspy.data import (
     SecSpyServerData,

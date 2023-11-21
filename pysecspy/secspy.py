@@ -263,9 +263,6 @@ class SecuritySpy:
         if self._ws_task is None:
             return
 
-        if self._ws_session is not None and not self._ws_session.closed:
-            await self._ws_session.close()
-
         self._ws_task.cancel()
         try:
             await self._ws_task
@@ -273,7 +270,10 @@ class SecuritySpy:
             pass
         finally:
             self._ws_task = None
-            _LOGGER("STREAM: Stopped listening")
+
+        if self._ws_session is not None and not self._ws_session.closed:
+            await self._ws_session.close()
+        _LOGGER("STREAM: Stopped listening")
 
     async def _start_event_streamer(self) -> None:
         """Start Webserver stream listener."""
