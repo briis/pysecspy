@@ -40,7 +40,7 @@ async def main() -> None:
         await secspy.update()
         cameras = secspy.cameras
         print(cameras)
-        await asyncio.sleep(30)
+        await asyncio.sleep(60)
         await secspy.stop_listening()
 
     except Exception as err:

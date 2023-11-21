@@ -260,6 +260,9 @@ class SecuritySpy:
 
     async def stop_listening(self) -> None:
         """Disconnect the webserver."""
+
+        _LOGGER("STREAM: Stop listener...")
+
         if self._ws_task is None:
             return
 
@@ -273,7 +276,6 @@ class SecuritySpy:
 
         if self._ws_session is not None and not self._ws_session.closed:
             await self._ws_session.close()
-        _LOGGER("STREAM: Stopped listening")
 
     async def _start_event_streamer(self) -> None:
         """Start Webserver stream listener."""
@@ -625,7 +627,9 @@ class SecuritySpy:
         # Live Image
         base_url = f"{server_credentials['host']}:{server_credentials['port']}"
         base_stream = f"rtsp://{base_url}/stream?auth={server_credentials['token']}"
-        _camera_live_stream = f"{base_stream}&cameraNum={_camera_id}&codec=h264"
+        _camera_live_stream = (
+            f"{base_stream}&cameraNum={_camera_id}&vcodec=h264&acodec=aac"
+        )
         # Jpeg Image
         image_width = str(camera["width"])
         image_height = str(camera["height"])
