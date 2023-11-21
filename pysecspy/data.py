@@ -3,51 +3,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import Any, Callable
-
-MAX_SUPPORTED_CAMERAS = 256
-MAX_EVENT_HISTORY_IN_STATE_MACHINE = MAX_SUPPORTED_CAMERAS * 2
-
-class SecSpyDevice:
-    """SecuritySpy camera device."""
-
-    def __init__(
-        self,
-        name: str,
-        model: str,
-        online: bool,
-        enabled: bool,
-        recordingmode_a: str,
-        recordingmode_c: str,
-        recordingmode_m: str,
-        ip_address: str,
-        livestream_url: str,
-        latestimage_url: str,
-        image_width: int,
-        image_height: int,
-        fps: int,
-        video_format: str,
-        ptz_features: str,
-        ptz_presets: object,
-    ) -> None:
-        """Initialize camera device."""
-        self._name = name
-        self._model = model
-        self._online = online
-        self._enabled = enabled
-        self._recordingmode_a = recordingmode_a
-        self._recordingmode_c = recordingmode_c
-        self._recordingmode_m = recordingmode_m
-        self._ip_address = ip_address
-        self._livestream_url = livestream_url
-        self._latestimage_url = latestimage_url
-        self._image_width = image_width
-        self._image_height = image_height
-        self._fps = fps
-        self._video_format = video_format
-        self._ptz_features = ptz_features
-        self._ptz_presets = ptz_presets
-
+from .const import MAX_EVENT_HISTORY_IN_STATE_MACHINE
 
 class SecSpyServerData:
     """Class to hold server information."""

@@ -20,7 +20,6 @@ from .const import (
     DEFAULT_SNAPSHOT_HEIGHT,
     DEFAULT_SNAPSHOT_WIDTH,
     DEVICE_UPDATE_INTERVAL_SECONDS,
-    EVENT_DISCONNECT,
     EVENT_LENGTH_PRECISION,
     EVENT_MOTION,
     EVENT_MESSAGES,
@@ -32,8 +31,6 @@ from .const import (
     RECORDING_TYPE_ACTION,
     RECORDING_TYPE_CONTINUOUS,
     RECORDING_TYPE_MOTION,
-    SERVER_ID,
-    SERVER_NAME,
     WEBSOCKET_CHECK_INTERVAL_SECONDS,
 )
 
@@ -250,7 +247,7 @@ class SecuritySpy:
             _LOGGER("STREAM: Stopped listening")
 
     async def _start_event_streamer(self) -> None:
-        """Start the Webserver stream listener"""
+        """Start Webserver stream listener."""
         assert self._ws_session
         while not self._ws_session.closed:
             async for msg in self._ws_stream.content:
@@ -423,7 +420,8 @@ class SecuritySpy:
         return datetime.datetime.strptime(time_stamp, "%Y%m%d%H%M%S").strftime("%Y-%m-%d %H:%M:%S")
 
     def fire_event(self, device_id, processed_event):
-        """Callback and event to the subscribers and update data."""
+        """Event callback and update data."""
+
         self._update_device(device_id, processed_event)
 
         for subscriber in self._ws_subscriptions:
@@ -432,6 +430,7 @@ class SecuritySpy:
 
     def subscribe_websocket(self, ws_callback):
         """Subscribe to websocket events.
+
         Return a callback that will unsubscribe.
         """
 
@@ -447,7 +446,8 @@ class SecuritySpy:
 #########################################
 
     def _process_camera_updates(self, action_json, data_json) -> None:
-        """Process a decoded Camera Message"""
+        """Process a decoded Camera Message."""
+
         camera_id, processed_camera = self._camera_from_updates(
             self._server_credential,
             action_json,
@@ -702,7 +702,7 @@ class SecuritySpy:
         api_url =  f"{self._base_url}/systemInfo?auth={self._token}"
         xml_data = await self._api.async_api_request(api_url)
 
-        return _get_server_information(xml_data)
+        return self._get_server_information(xml_data)
 
     async def _get_devices(self, include_events: bool) -> list[SecSpyServerData]:
         """Return list of Devices."""
@@ -720,6 +720,7 @@ class SecuritySpy:
 
     async def set_arm_mode(self, camera_id: str, mode: str, enabled: bool) -> bool:
         """Set camera arming mode.
+
         Valid inputs for mode: action, on_motion, continuous.
         """
 
@@ -741,7 +742,8 @@ class SecuritySpy:
         return True
 
     async def enable_schedule_preset(self, schedule_id: str) -> bool:
-        """Enables a schedule preset.
+        """Enable schedule preset.
+
         Valid inputs for schedule_id is a valid preset id.
         """
 
@@ -759,7 +761,7 @@ class SecuritySpy:
         return True
 
     async def enable_camera(self, camera_id: str, enabled: bool) -> bool:
-        """Enables or disables the camera."""
+        """Enable or disables camera."""
 
         _enable = int(enabled)
 
