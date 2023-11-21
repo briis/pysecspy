@@ -7,7 +7,7 @@ with open("README.md") as fh:
 
 setuptools.setup(
     name="pysecspy",
-    version="2.0.0",
+    version="2.0.1",
     author="briis",
     author_email="bjarne@briis.com",
     description="Handles camera feeds and events from SecuritySpy Soft NVR",
