@@ -302,7 +302,7 @@ class SecuritySpy:
                 # Update when camera settings change
                 if model_key == KEY_CAMERA:
                     action_json = {
-                        "modelkey": KEY_CAMERA,
+                        "modelKey": KEY_CAMERA,
                         "id": action_array[2],
                     }
                     if action_key == "ARM_A":
@@ -528,6 +528,7 @@ class SecuritySpy:
         self, server_credentials: str, action_json, data_json
     ) -> None:
         """Convert camera data stream to internal format."""
+        _LOGGER.debug("ACTION_JSON: %s", action_json)
         if action_json["modelKey"] != KEY_CAMERA:
             raise ValueError("Trigger must be a Camera")
 
