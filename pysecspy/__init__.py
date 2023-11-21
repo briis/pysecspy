@@ -2,7 +2,10 @@
 """A Python Wrapper for Bensoftware SecuritySpy."""
 from __future__ import annotations
 
-from pysecspy.secspy import SecuritySpy
+from pysecspy.secspy import (
+    SecuritySpy,
+    SecuritySpyError,
+)
 from pysecspy.data import (
     SecSpyServerData,
 )
