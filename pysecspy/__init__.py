@@ -13,6 +13,6 @@ from pysecspy.data import (
 )
 
 __title__ = "pysecspy"
-__version__ = "2.0.0"
+__version__ = "2.0.1"
 __author__ = "briis"
 __license__ = "MIT"
