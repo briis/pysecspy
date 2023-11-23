@@ -40,18 +40,18 @@ async def main() -> None:
         await secspy.update()
         cameras = secspy.cameras
         print(cameras)
-        await asyncio.sleep(60)
+        await asyncio.sleep(20)
         await secspy.stop_listening()
 
     except Exception as err:
         print(err)
 
-    if session is not None:
-        await session.close()
-
     end = time.time()
 
     _LOGGER.info("Execution time: %s seconds", end - start)
+
+    if session is not None:
+        await session.close()
 
 
 asyncio.run(main())

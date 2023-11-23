@@ -266,6 +266,9 @@ class SecuritySpy:
         if self._ws_task is None:
             return
 
+        if self._ws_session is not None and not self._ws_session.closed:
+            await self._ws_session.close()
+
         self._ws_task.cancel()
         try:
             await self._ws_task
@@ -273,9 +276,7 @@ class SecuritySpy:
             pass
         finally:
             self._ws_task = None
-
-        if self._ws_session is not None and not self._ws_session.closed:
-            await self._ws_session.close()
+            await asyncio.sleep(0.5)
 
     async def _start_event_streamer(self) -> None:
         """Start Webserver stream listener."""
@@ -459,7 +460,7 @@ class SecuritySpy:
 
         except Exception as err:
             _LOGGER.exception("STREAM: Error processing stream. Error: %s", err)
-            return
+            raise ResultError("Error in Webserver Stream: %s", err)
 
         return
 
@@ -687,7 +688,11 @@ class SecuritySpy:
         if device_id is None:
             return
 
-        _LOGGER.debug("Procesed event: %s", processed_event)
+        _LOGGER.debug(
+            "EVENT UPDATE Type: %s, On: %s",
+            processed_event.get("event_type"),
+            processed_event.get("event_on"),
+        )
 
         self.fire_event(device_id, processed_event)
 
@@ -713,7 +718,11 @@ class SecuritySpy:
         else:
             raise ValueError("Trigger action must be add or update")
 
-        _LOGGER.debug("Processing Event %s", event)
+        _LOGGER.debug(
+            "EVENT Type: %s, HUMAN: %s",
+            event.get("type"),
+            event.get("event_score_human"),
+        )
         processed_event = self._process_event_data(event)
 
         return device_id, processed_event
