@@ -10,13 +10,13 @@ This module communicates with a [SecuritySpy Video Server](https://www.bensoftwa
 
 It will require the Webserver component activated on SecuritySpy, and a Username, Password, IP Address and Port number for the Webserver.
 
-See `devicelist.py` and `eventlist.py` for examples on how to use this wrapper. And before doing so, edit each file and insert your SecuritySpy IP Adress, Port Number, Username and Password in the designated variables.
+See `devicelist.py` and `eventlist.py` for examples on how to use this wrapper. And before doing so, create a file called `.env` in the same directory as these two files. Add the following lines to `.env`:
 
 ```python
-USERNAME = "YOUR_USERNAME"
-PASSWORD = "YOUR_PASSWORD"
-IPADDRESS = "YOUR_IP_ADDRESS"
+USERNAME = YOUR_USERNAME
+PASSWORD = YOUR_PASSWORD
+IPADDRESS = YOUR_IP_ADDRESS
 PORT = 8000
 ```
 
-Change all the items in CAPITAL letters to your personal settings.
+Change all the items to the right of the = sign to your personal settings.

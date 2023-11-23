@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+function BuildPackage {
+  echo "Building package..."
+  cd /workspaces/pypi_visualcrossing
+  python pyVisualCrossing/setup.py sdist
+  echo "Package built!"
+}
+
+function UploadPackage {
+  echo "Building package..."
+  twine upload /workspaces/pypi_visualcrossing/dist/*
+  echo "Package built!"
+}
+
